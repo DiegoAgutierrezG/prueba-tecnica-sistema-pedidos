@@ -1,5 +1,6 @@
 # Variables de entorno con valores reales
 .env
+docs/GUIA_DE_APRENDIZAJE.md
 
 # Editores y sistema
 .idea/
@@ -8,3 +9,6 @@
 .DS_Store
 Thumbs.db
 ~$*
+
+# Pruebas locales fuera de la entrega
+tests/
