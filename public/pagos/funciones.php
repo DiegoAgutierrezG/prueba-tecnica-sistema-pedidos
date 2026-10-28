@@ -10,7 +10,14 @@ const METODOS_PAGO = [
     'cheque' => 'Cheque',
 ];
 
+const HORAS_DEVOLUCION_ATENCION = 24;
+const HORAS_DEVOLUCION_URGENTE = 48;
+
 final class ReglaPago extends RuntimeException
+{
+}
+
+final class ReglaDevolucion extends RuntimeException
 {
 }
 
@@ -26,8 +33,23 @@ function centavos_pago_recibido(mixed $valor): ?int
 
 function mostrar_monto_pago(int $centavos): string
 {
-    return '$ ' . number_format(intdiv($centavos, 100), 0, ',', '.')
-        . ',' . str_pad((string) ($centavos % 100), 2, '0', STR_PAD_LEFT);
+    return mostrar_centavos_cop($centavos);
+}
+
+function estado_espera_devolucion(?string $anuladoEn, ?DateTimeImmutable $ahora = null): array
+{
+    if ($anuladoEn === null) {
+        return ['nivel' => 'sin_fecha', 'horas' => null];
+    }
+
+    $zonaUtc = new DateTimeZone('UTC');
+    $fechaAnulacion = new DateTimeImmutable($anuladoEn, $zonaUtc);
+    $ahora ??= new DateTimeImmutable('now', $zonaUtc);
+    $horas = intdiv(max(0, $ahora->getTimestamp() - $fechaAnulacion->getTimestamp()), 3600);
+
+    $nivel = $horas >= HORAS_DEVOLUCION_URGENTE ? 'urgente'
+        : ($horas >= HORAS_DEVOLUCION_ATENCION ? 'atencion' : 'reciente');
+    return ['nivel' => $nivel, 'horas' => $horas];
 }
 
 function resumen_pedido_pago(PDO $conexion, int $pedidoId): ?array
@@ -57,6 +79,75 @@ function historial_pagos(PDO $conexion, int $pedidoId): array
     );
     $consulta->execute(['id' => $pedidoId]);
     return $consulta->fetchAll();
+}
+
+function devolucion_pedido(PDO $conexion, int $pedidoId): ?array
+{
+    $consulta = $conexion->prepare(
+        'SELECT d.valor, d.metodo, d.referencia, d.fecha, u.nombre AS registrado_por
+         FROM devoluciones AS d INNER JOIN usuarios AS u ON u.id = d.usuario_id
+         WHERE d.pedido_id = :id LIMIT 1'
+    );
+    $consulta->execute(['id' => $pedidoId]);
+    $devolucion = $consulta->fetch();
+    return $devolucion === false ? null : $devolucion;
+}
+
+function registrar_devolucion(PDO $conexion, int $pedidoId, int $usuarioId, mixed $metodoRecibido, mixed $referenciaRecibida): int
+{
+    if (!is_string($metodoRecibido) || !isset(METODOS_PAGO[$metodoRecibido])) {
+        throw new ReglaDevolucion('Selecciona cómo se devolvió el dinero al cliente.', 422);
+    }
+    if (!is_string($referenciaRecibida) || !mb_check_encoding($referenciaRecibida, 'UTF-8')) {
+        throw new ReglaDevolucion('Ingresa una referencia válida o deja el campo vacío.', 422);
+    }
+    $referencia = trim($referenciaRecibida);
+    if (mb_strlen($referencia, 'UTF-8') > 100 || preg_match('/[\x00-\x1F\x7F]/u', $referencia)) {
+        throw new ReglaDevolucion('La referencia admite hasta 100 caracteres y una sola línea.', 422);
+    }
+
+    $conexion->beginTransaction();
+    try {
+        $consulta = $conexion->prepare('SELECT estado FROM pedidos WHERE id = :id FOR UPDATE');
+        $consulta->execute(['id' => $pedidoId]);
+        $pedido = $consulta->fetch();
+        if ($pedido === false) {
+            throw new ReglaDevolucion('El pedido solicitado no existe.', 404);
+        }
+        if ($pedido['estado'] !== 'anulado') {
+            throw new ReglaDevolucion('Solo se registran devoluciones de pedidos anulados.', 409);
+        }
+
+        $consulta = $conexion->prepare('SELECT COALESCE(SUM(valor), 0.00) FROM pagos WHERE pedido_id = :id');
+        $consulta->execute(['id' => $pedidoId]);
+        $pagado = centavos_de_decimal((string) $consulta->fetchColumn());
+        if ($pagado === 0) {
+            throw new ReglaDevolucion('Este pedido no tiene pagos por devolver.', 409);
+        }
+        $consulta = $conexion->prepare('SELECT id FROM devoluciones WHERE pedido_id = :id');
+        $consulta->execute(['id' => $pedidoId]);
+        if ($consulta->fetch() !== false) {
+            throw new ReglaDevolucion('La devolución de este pedido ya fue registrada.', 409);
+        }
+
+        $insertar = $conexion->prepare(
+            'INSERT INTO devoluciones (pedido_id, valor, metodo, referencia, fecha, usuario_id)
+             VALUES (:pedido_id, :valor, :metodo, :referencia, UTC_TIMESTAMP(6), :usuario_id)'
+        );
+        $insertar->execute([
+            'pedido_id' => $pedidoId,
+            'valor' => decimal_de_centavos($pagado),
+            'metodo' => $metodoRecibido,
+            'referencia' => $referencia === '' ? null : $referencia,
+            'usuario_id' => $usuarioId,
+        ]);
+        $devolucionId = (int) $conexion->lastInsertId();
+        $conexion->commit();
+        return $devolucionId;
+    } catch (Throwable $error) {
+        if ($conexion->inTransaction()) $conexion->rollBack();
+        throw $error;
+    }
 }
 
 function registrar_pago(PDO $conexion, int $pedidoId, int $usuarioId, mixed $valorRecibido, mixed $metodoRecibido): int

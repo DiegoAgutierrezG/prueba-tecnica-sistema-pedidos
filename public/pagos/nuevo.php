@@ -100,13 +100,13 @@ mostrar_cabecera('Pago de ' . $pedido['consecutivo'], $usuario, false, 'pagos');
 <?php else: ?>
     <div class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
         <h2 class="h5 mb-2">Registrar abono</h2>
-        <p id="ayuda-valor-pago" class="form-text mt-0 mb-3">Ingresa un valor mayor que cero y hasta <?= escapar_html(mostrar_monto_pago($saldoCentavos)) ?>. Usa coma o punto para los centavos, sin separadores de miles.</p>
+        <p id="ayuda-valor-pago" class="form-text mt-0 mb-3">Ingresa un valor mayor que cero y hasta <?= escapar_html(mostrar_monto_pago($saldoCentavos)) ?>, sin separadores de miles. Si recibiste centavos, puedes usar coma o punto; el historial los mostrará en palabras.</p>
         <form action="/pagos/nuevo.php?id=<?= $id ?>" method="post" class="row g-3 align-items-end">
             <input type="hidden" name="token_csrf" value="<?= escapar_html(token_csrf()) ?>">
             <input type="hidden" name="id" value="<?= $id ?>">
             <div class="col-md-5">
                 <label for="valor" class="form-label">Valor del pago (COP)</label>
-                <input id="valor" name="valor" type="text" inputmode="decimal" class="form-control<?= $errorFormulario !== '' ? ' is-invalid' : '' ?>" value="<?= escapar_html($valorFormulario) ?>" maxlength="15" placeholder="Ej. 150000,00" autocomplete="off" aria-describedby="ayuda-valor-pago" required>
+                <input id="valor" name="valor" type="text" inputmode="decimal" class="form-control<?= $errorFormulario !== '' ? ' is-invalid' : '' ?>" value="<?= escapar_html($valorFormulario) ?>" maxlength="15" placeholder="Ej. 150000" autocomplete="off" aria-describedby="ayuda-valor-pago" required>
             </div>
             <div class="col-md-4">
                 <label for="metodo" class="form-label">Método</label>
