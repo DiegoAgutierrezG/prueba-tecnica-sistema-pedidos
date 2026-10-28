@@ -14,7 +14,7 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'], true)) {
 $esEnvio = $_SERVER['REQUEST_METHOD'] === 'POST';
 $id = id_pedido_valido($esEnvio ? ($_POST['id'] ?? null) : ($_GET['id'] ?? null));
 if ($id === null) {
-    mostrar_error($esEnvio ? 400 : 404, 'Pedido no encontrado', 'No se pudo identificar el pedido.', $usuario);
+    mostrar_error($esEnvio ? 400 : 404, 'Pedido no encontrado', 'No se pudo identificar el pedido. Selecciónalo de nuevo desde Devoluciones.', $usuario);
 }
 
 $errorFormulario = '';
@@ -40,7 +40,7 @@ if ($esEnvio) {
         http_response_code($error->getCode() === 409 ? 409 : 422);
     } catch (Throwable $error) {
         error_log((string) $error);
-        mostrar_error(503, 'Servicio no disponible', 'No se pudo registrar la devolución.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el registro de la devolución. Revisa su estado en Pagos antes de intentarlo de nuevo.', $usuario);
     }
 }
 
@@ -48,19 +48,19 @@ try {
     $conexion = conectar_bd();
     $pedido = resumen_pedido_pago($conexion, $id);
     if ($pedido === null) {
-        mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe.', $usuario);
+        mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe. Selecciona otro desde Devoluciones.', $usuario);
     }
     if ($pedido['estado'] !== 'anulado') {
-        mostrar_error(409, 'Pedido no anulado', 'Solo se devuelven pagos de pedidos anulados.', $usuario);
+        mostrar_error(409, 'Pedido no anulado', 'Solo se devuelven pagos de pedidos anulados. Revisa el estado del pedido en Devoluciones.', $usuario);
     }
     $pagado = centavos_de_decimal($pedido['pagado']);
     if ($pagado === 0) {
-        mostrar_error(409, 'Sin pagos', 'Este pedido no tiene pagos por devolver.', $usuario);
+        mostrar_error(409, 'Sin pagos', 'Este pedido no tiene pagos por devolver. Revisa el historial del pedido en Pagos.', $usuario);
     }
     $devolucion = devolucion_pedido($conexion, $id);
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la devolución del pedido.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la devolución del pedido. Vuelve a Pagos e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 mostrar_cabecera('Devolución de ' . $pedido['consecutivo'], $usuario, false, 'pagos');
@@ -104,7 +104,7 @@ mostrar_cabecera('Devolución de ' . $pedido['consecutivo'], $usuario, false, 'p
     </div>
     <div class="card border-0 shadow-sm"><div class="card-body p-4">
         <h2 class="h5 mb-3">Registrar devolución total realizada</h2>
-        <form action="/pagos/devolucion.php?id=<?= $id ?>" method="post" class="row g-3 align-items-end" onsubmit="return confirm('Confirma que ya devolviste todo el importe recibido por este pedido. Esta constancia no transfiere dinero. ¿Registrar la devolución?')">
+        <form id="formulario-devolucion" action="/pagos/devolucion.php?id=<?= $id ?>" method="post" class="row g-3 align-items-end">
             <input type="hidden" name="token_csrf" value="<?= escapar_html(token_csrf()) ?>">
             <input type="hidden" name="id" value="<?= $id ?>">
             <div class="col-md-4">
@@ -121,9 +121,22 @@ mostrar_cabecera('Devolución de ' . $pedido['consecutivo'], $usuario, false, 'p
                 <input id="referencia" name="referencia" type="text" class="form-control<?= $errorFormulario !== '' ? ' is-invalid' : '' ?>" value="<?= escapar_html($referenciaFormulario) ?>" maxlength="100" autocomplete="off">
             </div>
             <div class="col-md-3 d-grid">
-                <button type="submit" class="btn btn-primary">Registrar devolución</button>
+                <button id="boton-registrar-devolucion" type="submit" class="btn btn-primary">Registrar devolución</button>
             </div>
         </form>
     </div></div>
+    <dialog id="dialogo-confirmar-devolucion" class="dialogo-confirmacion" aria-labelledby="titulo-confirmar-devolucion" aria-describedby="descripcion-confirmar-devolucion">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="M16 24h16m-8-8v16"/></svg>
+        </span>
+        <h2 id="titulo-confirmar-devolucion">¿Registrar devolución?</h2>
+        <p id="descripcion-confirmar-devolucion">Confirma que ya entregaste <?= escapar_html(mostrar_monto_pago($pagado)) ?> al cliente de <?= escapar_html($pedido['consecutivo']) ?>. Esta constancia no transfiere dinero.</p>
+        <p class="metodo-confirmar-devolucion">Método: <strong data-metodo-devolucion></strong></p>
+        <div class="acciones-confirmacion">
+            <button type="button" class="btn btn-outline-secondary" data-cancelar-devolucion>Volver</button>
+            <button type="button" class="btn btn-primary" data-confirmar-devolucion>Sí, registrar</button>
+        </div>
+    </dialog>
 <?php endif; ?>
+<script src="/assets/js/devolucion.js?v=1" defer></script>
 <?php mostrar_pie(true); ?>
