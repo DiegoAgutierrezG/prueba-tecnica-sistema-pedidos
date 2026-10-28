@@ -122,12 +122,29 @@ body.pagina-aplicacion {
 .boton-submenu:focus-visible { outline: 2px solid #d8ebe1; outline-offset: -2px; }
 .boton-submenu[aria-expanded="true"] svg { transform: rotate(90deg); }
 .submenu-menu {
-    margin: 4px 0 6px 30px;
+    max-height: 0;
+    margin: 0 0 0 30px;
     padding: 0;
+    overflow: hidden;
     list-style: none;
     color: #d8ebe1;
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-4px);
+    transition: max-height .38s cubic-bezier(.22, 1, .36, 1),
+        margin .38s cubic-bezier(.22, 1, .36, 1),
+        opacity .28s ease, clip-path .38s cubic-bezier(.22, 1, .36, 1),
+        transform .38s cubic-bezier(.22, 1, .36, 1);
 }
 .submenu-menu[hidden] { display: none; }
+.submenu-menu.abierto {
+    max-height: var(--alto-submenu, 180px);
+    margin-top: 4px;
+    margin-bottom: 6px;
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateY(0);
+}
 .enlace-submenu {
     display: flex;
     align-items: baseline;
@@ -160,6 +177,8 @@ body.pagina-aplicacion {
     margin-top: auto;
     padding-top: 20px;
 }
+
+.enlace-administracion { background: rgba(255, 255, 255, .06); }
 
 .usuario-menu {
     display: flex;
@@ -215,10 +234,18 @@ body.pagina-aplicacion {
 .icono-confirmacion svg { width: 45px; height: 45px; }
 .dialogo-confirmacion h2 { margin: 0 0 10px; font-size: 25px; font-weight: 730; }
 .dialogo-confirmacion p { margin: 0 0 25px; color: #61766a; line-height: 1.5; overflow-wrap: anywhere; }
+.dialogo-confirmacion .metodo-confirmar-devolucion { margin-top: -14px; color: var(--verde-oscuro); }
 .acciones-confirmacion { display: flex; gap: 10px; }
 .acciones-confirmacion .btn { flex: 1; min-height: 46px; font-weight: 650; }
 .dialogo-confirmacion.es-desactivacion .icono-confirmacion { color: #b42332; background: #ffedf0; }
+.dialogo-confirmacion.aviso-error .icono-confirmacion { color: #a94b20; background: #fff1e8; }
 .dialogo-confirmacion.aviso-stock { width: min(620px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.dialogo-confirmacion.dialogo-usuario { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.resumen-confirmacion-usuario { margin: 0 0 24px; padding: 2px 16px; border: 1px solid #dce9e0; border-radius: 12px; text-align: left; }
+.resumen-confirmacion-usuario > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 10px; padding: 9px 0; }
+.resumen-confirmacion-usuario > div + div { border-top: 1px solid #edf3ee; }
+.resumen-confirmacion-usuario dt { color: #61766a; font-weight: 400; }
+.resumen-confirmacion-usuario dd { min-width: 0; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .aviso-stock .icono-confirmacion { color: #966011; background: #fff3d6; }
 .resumen-alerta-stock { margin-bottom: 20px; text-align: left; }
 .linea-alerta-stock { padding: 10px 0; border-bottom: 1px solid #e0ebe3; overflow-wrap: anywhere; }
@@ -356,6 +383,32 @@ body.pagina-aplicacion {
 .pagina-aplicacion .card { border-radius: 16px; }
 .pagina-aplicacion .alert-info { border-color: #cbe9d8; color: #174e3a; background: #e9f7ef; }
 
+.grafico-ventas-tramos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+    gap: 16px;
+}
+.columna-ventas-tramo { display: flex; min-width: 0; flex-direction: column; align-items: center; text-align: center; }
+.importe-tramo { display: grid; min-height: 43px; place-items: end center; color: var(--verde-oscuro); font-size: 13px; line-height: 1.2; overflow-wrap: anywhere; }
+.zona-barra-tramo {
+    display: flex;
+    width: 100%;
+    height: 170px;
+    align-items: flex-end;
+    justify-content: center;
+    margin-top: 9px;
+    border-bottom: 1px solid #bad7c5;
+    background: repeating-linear-gradient(to top, transparent 0, transparent 41px, #edf4ef 42px);
+}
+.barra-tramo { display: block; width: min(76px, 72%); border-radius: 9px 9px 0 0; background: linear-gradient(180deg, #1cad74, #087b56); }
+.etiqueta-tramo { margin-top: 10px; color: var(--verde-oscuro); font-size: 14px; font-weight: 650; }
+.grafico-vendedores { display: grid; gap: 14px; }
+.fila-grafico-vendedor { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(100px, 2fr) 60px; align-items: center; gap: 14px; }
+.nombre-grafico-vendedor { min-width: 0; overflow-wrap: anywhere; }
+.pista-grafico-vendedor { height: 14px; overflow: hidden; border-radius: 999px; background: #e8f2eb; }
+.pista-grafico-vendedor span { display: block; height: 100%; border-radius: inherit; background: #148760; }
+.valor-grafico-vendedor { color: var(--verde-oscuro); font-size: 14px; text-align: right; }
+
 .flechas-orden { display: inline-flex; gap: 2px; margin-left: 4px; vertical-align: middle; white-space: nowrap; }
 .flecha-orden.btn {
     display: inline-grid;
@@ -435,6 +488,13 @@ body.pagina-aplicacion {
 
 .velo-menu { display: none; }
 
+.detalle-metodo-pago[hidden] { display: none; }
+.detalle-metodo-pago:not([hidden]) { animation: mostrar-detalle-pago .22s ease-out; }
+@keyframes mostrar-detalle-pago {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 @media (max-width: 900px) {
     .pagina-aplicacion { --ancho-menu: 0px; }
     .pagina-aplicacion.menu-reducido { --ancho-menu: 0px; }
@@ -464,11 +524,16 @@ body.pagina-aplicacion {
     .rol-superior { display: none; }
     .barra-superior { padding-right: 16px; padding-left: 16px; }
     .acciones-confirmacion { flex-direction: column; }
+    .resumen-confirmacion-usuario > div { grid-template-columns: 1fr; gap: 2px; }
     .encabezado-calculo { padding: 16px; }
     .contenido-calculo { padding: 0 16px 16px; }
+    .fila-grafico-vendedor { grid-template-columns: minmax(0, 1fr) 60px; row-gap: 5px; }
+    .pista-grafico-vendedor { grid-column: 1 / -1; grid-row: 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .menu-lateral, .area-principal, .enlace-menu { transition: none; }
     .dialogo-confirmacion[open], .dialogo-resumen-stock[open] { animation: none; }
+    .submenu-menu { transition: none; }
+    .detalle-metodo-pago:not([hidden]) { animation: none; }
 }

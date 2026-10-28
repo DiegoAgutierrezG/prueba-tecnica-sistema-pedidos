@@ -28,7 +28,7 @@ try {
     $productosBajoMinimo = (int) $consulta->fetchColumn();
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el resumen de inicio.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el resumen de inicio. Inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 mostrar_cabecera('Inicio', $usuario, false, 'inicio');

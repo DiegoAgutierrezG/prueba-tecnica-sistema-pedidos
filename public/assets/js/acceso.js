@@ -14,9 +14,12 @@ if (botonVisibilidad && campoClave) {
 
 const dialogoAviso = document.getElementById('dialogo-aviso');
 
-if (dialogoAviso instanceof HTMLDialogElement) {
+if (dialogoAviso && typeof dialogoAviso.showModal === 'function') {
     dialogoAviso.showModal();
+    const avisoRespaldo = document.getElementById('aviso-error-ingreso');
+    if (avisoRespaldo) avisoRespaldo.hidden = true;
     dialogoAviso.addEventListener('close', () => {
-        document.getElementById('correo')?.focus();
+        const campo = dialogoAviso.classList.contains('aviso-credenciales') ? 'clave' : 'correo';
+        document.getElementById(campo)?.focus();
     });
 }

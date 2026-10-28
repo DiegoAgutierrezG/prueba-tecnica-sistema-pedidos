@@ -9,6 +9,7 @@
     if (!boton || !menu || !velo) return;
 
     const pantallaPequena = window.matchMedia('(max-width: 900px)');
+    const movimientoReducido = window.matchMedia('(prefers-reduced-motion: reduce)');
     const clavePreferencia = 'andina_menu_reducido';
     let reducido = false;
     let abierto = false;
@@ -18,9 +19,19 @@
     function cerrarSubmenu() {
         clearTimeout(cierrePendiente);
         if (!submenuAbierto) return;
-        submenuAbierto.panel.hidden = true;
-        submenuAbierto.boton.setAttribute('aria-expanded', 'false');
+        const submenu = submenuAbierto;
         submenuAbierto = null;
+        submenu.boton.setAttribute('aria-expanded', 'false');
+        submenu.panel.inert = true;
+        submenu.panel.classList.remove('abierto');
+        clearTimeout(submenu.temporizador);
+        if (movimientoReducido.matches) {
+            submenu.panel.hidden = true;
+        } else {
+            submenu.temporizador = setTimeout(() => {
+                if (!submenu.panel.classList.contains('abierto')) submenu.panel.hidden = true;
+            }, 400);
+        }
     }
 
     function previsualizarMenu() {
@@ -35,11 +46,17 @@
 
     function abrirSubmenu(submenu) {
         clearTimeout(cierrePendiente);
-        if (submenuAbierto !== submenu) cerrarSubmenu();
+        if (submenuAbierto === submenu) return;
+        cerrarSubmenu();
         submenuAbierto = submenu;
-        submenu.panel.hidden = false;
-        submenu.boton.setAttribute('aria-expanded', 'true');
+        clearTimeout(submenu.temporizador);
         previsualizarMenu();
+        submenu.panel.hidden = false;
+        submenu.panel.inert = false;
+        submenu.panel.style.setProperty('--alto-submenu', `${submenu.panel.scrollHeight}px`);
+        submenu.panel.getBoundingClientRect();
+        submenu.panel.classList.add('abierto');
+        submenu.boton.setAttribute('aria-expanded', 'true');
     }
 
     menu.querySelectorAll('[data-submenu]').forEach((grupo) => {
@@ -47,16 +64,24 @@
             grupo,
             boton: grupo.querySelector('[data-alternar-submenu]'),
             panel: grupo.querySelector('.submenu-menu'),
+            temporizador: null,
+            esperarSalida: false,
         };
         const enlacePrincipal = grupo.querySelector('.enlace-menu');
         // Abrir por movimiento evita que el cambio de altura active otra sección por sí solo.
         grupo.addEventListener('pointermove', (evento) => {
-            if (evento.pointerType === 'touch' || pantallaPequena.matches) return;
+            if (evento.pointerType === 'touch' || pantallaPequena.matches || submenu.esperarSalida) return;
             abrirSubmenu(submenu);
         });
+        grupo.addEventListener('pointerleave', () => { submenu.esperarSalida = false; });
         submenu.boton.addEventListener('click', () => {
-            if (submenuAbierto === submenu) cerrarSubmenu();
-            else abrirSubmenu(submenu);
+            if (submenuAbierto === submenu) {
+                submenu.esperarSalida = true;
+                cerrarSubmenu();
+            } else {
+                submenu.esperarSalida = false;
+                abrirSubmenu(submenu);
+            }
         });
         grupo.addEventListener('focusin', (evento) => {
             if (evento.target === enlacePrincipal && !pantallaPequena.matches) abrirSubmenu(submenu);
@@ -75,6 +100,7 @@
             } else if ((evento.key === 'Escape' || evento.key === 'ArrowLeft') && submenuAbierto === submenu) {
                 evento.preventDefault();
                 evento.stopPropagation();
+                submenu.esperarSalida = true;
                 cerrarSubmenu();
                 submenu.boton.focus();
             }
@@ -157,6 +183,7 @@
         if (evento.key === 'Escape' && submenuAbierto) {
             evento.preventDefault();
             const botonSubmenu = submenuAbierto.boton;
+            submenuAbierto.esperarSalida = true;
             cerrarSubmenu();
             botonSubmenu.focus();
             return;
@@ -190,34 +217,33 @@
     cuerpo.classList.add('menu-listo');
     actualizarMenu();
 
-    if (formularioSalida) {
+    if (formularioSalida && dialogoSalida && typeof dialogoSalida.showModal === 'function') {
         let salidaConfirmada = false;
-        const admiteDialogo = typeof HTMLDialogElement !== 'undefined'
-            && dialogoSalida instanceof HTMLDialogElement;
 
         formularioSalida.addEventListener('submit', (evento) => {
             if (salidaConfirmada) return;
             evento.preventDefault();
-
-            if (admiteDialogo) {
-                if (!dialogoSalida.open) dialogoSalida.showModal();
-            } else if (window.confirm('¿Seguro que quieres cerrar sesión?')) {
-                salidaConfirmada = true;
-                formularioSalida.requestSubmit();
-            }
+            if (!dialogoSalida.open) dialogoSalida.showModal();
         });
 
-        if (admiteDialogo) {
-            dialogoSalida.querySelector('[data-cancelar-salida]').addEventListener('click', () => {
-                dialogoSalida.close();
-            });
-            dialogoSalida.querySelector('[data-confirmar-salida]').addEventListener('click', () => {
-                salidaConfirmada = true;
+        dialogoSalida.querySelector('[data-cancelar-salida]').addEventListener('click', () => {
+            dialogoSalida.close();
+        });
+        dialogoSalida.querySelector('[data-confirmar-salida]').addEventListener('click', () => {
+            salidaConfirmada = true;
+            if (typeof formularioSalida.requestSubmit === 'function') {
                 formularioSalida.requestSubmit();
-            });
-            dialogoSalida.addEventListener('close', () => {
-                if (!salidaConfirmada) formularioSalida.querySelector('.boton-salida')?.focus();
-            });
-        }
+            } else {
+                formularioSalida.submit();
+            }
+        });
+        dialogoSalida.addEventListener('close', () => {
+            if (!salidaConfirmada) formularioSalida.querySelector('.boton-salida')?.focus();
+        });
+        window.addEventListener('pageshow', (evento) => {
+            if (!evento.persisted) return;
+            salidaConfirmada = false;
+            if (dialogoSalida.open) dialogoSalida.close();
+        });
     }
 })();

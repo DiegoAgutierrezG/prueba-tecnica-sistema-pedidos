@@ -9,7 +9,7 @@ $claveRecibida = $_GET['seccion'] ?? null;
 $clave = is_string($claveRecibida) ? $claveRecibida : '';
 
 if (!isset(SECCIONES[$clave])) {
-    mostrar_error(404, 'Sección no encontrada', 'La dirección solicitada no corresponde a una sección del sistema.', $usuario);
+    mostrar_error(404, 'Sección no encontrada', 'La dirección solicitada no corresponde a una sección del sistema. Abre la sección desde el menú.', $usuario);
 }
 
 $seccion = SECCIONES[$clave];

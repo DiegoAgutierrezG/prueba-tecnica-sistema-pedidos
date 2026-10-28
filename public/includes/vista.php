@@ -18,6 +18,7 @@ function icono_menu(string $nombre): string
         'pedidos' => '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6m-6 4h6m-6 4h4"/>',
         'pagos' => '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 9h20m-16 6h4"/>',
         'reportes' => '<path d="M4 20V10m5 10V4m5 16v-7m5 7V8M2 20h20"/>',
+        'usuarios' => '<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2m3-11a3 3 0 1 1 0 6m-1 2a5 5 0 0 1 4 5v1"/>',
         'salir' => '<path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5m4-4 4-4-4-4m4 4H9"/>',
         default => '<circle cx="12" cy="12" r="9"/>',
     };
@@ -39,11 +40,18 @@ function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngres
     <link rel="icon" type="image/png" href="/assets/img/icono.png">
     <link rel="stylesheet" href="/assets/bootstrap/bootstrap.min.css">
     <?php if ($esIngreso): ?>
-        <link rel="stylesheet" href="/assets/css/acceso.css?v=10">
-        <script src="/assets/js/acceso.js?v=3" defer></script>
+        <link rel="stylesheet" href="/assets/css/acceso.css?v=11">
+        <script src="/assets/js/acceso.js?v=4" defer></script>
     <?php elseif ($usuario !== null): ?>
-        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=16">
-        <script src="/assets/js/navegacion.js?v=4" defer></script>
+        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=24">
+        <script src="/assets/js/navegacion.js?v=6" defer></script>
+        <script src="/assets/js/errores.js?v=1" defer></script>
+        <?php if ($seccionActiva === 'usuarios'): ?>
+            <script src="/assets/js/usuarios.js?v=1" defer></script>
+        <?php endif; ?>
+    <?php else: ?>
+        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=24">
+        <script src="/assets/js/errores.js?v=1" defer></script>
     <?php endif; ?>
 </head>
 <body class="<?= $esIngreso ? 'pagina-ingreso' : ($usuario !== null ? 'pagina-aplicacion' : 'bg-light') ?>">
@@ -91,6 +99,11 @@ function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngres
         </nav>
 
         <div class="pie-menu">
+            <?php if (tiene_permiso($usuario, 'usuarios.administrar')): ?>
+                <a href="/usuarios/index.php" class="enlace-menu enlace-administracion<?= $seccionActiva === 'usuarios' ? ' activo' : '' ?>" title="Administrar usuarios"<?= $seccionActiva === 'usuarios' && parse_url($rutaActual, PHP_URL_PATH) === '/usuarios/index.php' ? ' aria-current="page"' : '' ?>>
+                    <?= icono_menu('usuarios') ?><span class="texto-menu">Administrar usuarios</span>
+                </a>
+            <?php endif; ?>
             <div class="usuario-menu" title="<?= escapar_html($usuario['nombre'] . ' · ' . $usuario['nombre_rol']) ?>">
                 <span class="avatar-menu" aria-hidden="true"><?= escapar_html(mb_strtoupper(mb_substr($usuario['nombre'], 0, 1))) ?></span>
                 <span class="datos-usuario"><strong><?= escapar_html($usuario['nombre']) ?></strong><small><?= escapar_html($usuario['nombre_rol']) ?></small></span>
@@ -147,16 +160,24 @@ function mostrar_pie(bool $conMenu = false): void
 function mostrar_error(int $codigo, string $titulo, string $mensaje, ?array $usuario = null): never
 {
     http_response_code($codigo);
+    $rutaVolver = $usuario === null ? '/login.php' : '/index.php';
     mostrar_cabecera($titulo, $usuario);
     ?>
-    <div class="card border-0 shadow-sm mx-auto" style="max-width: 38rem">
-        <div class="card-body p-4 p-md-5">
-            <p class="text-secondary mb-2">Error <?= $codigo ?></p>
-            <h1 class="h3 mb-3"><?= escapar_html($titulo) ?></h1>
-            <p class="mb-4"><?= escapar_html($mensaje) ?></p>
-            <a href="<?= $usuario === null ? '/login.php' : '/index.php' ?>" class="btn btn-primary">Volver</a>
-        </div>
+    <div id="error-respaldo" class="alert alert-warning mx-auto" style="max-width: 38rem" role="alert">
+        <strong><?= escapar_html($titulo) ?>.</strong> <?= escapar_html($mensaje) ?>
+        <a href="<?= $rutaVolver ?>" class="alert-link">Volver</a>.
     </div>
+    <dialog class="dialogo-confirmacion aviso-error" data-error-pagina data-ruta-volver="<?= $rutaVolver ?>"
+        aria-labelledby="titulo-error-pagina" aria-describedby="mensaje-error-pagina">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5a19 19 0 1 0 0 38 19 19 0 0 0 0-38Zm0 11v12m0 5v1"/></svg>
+        </span>
+        <h2 id="titulo-error-pagina" data-error-titulo><?= escapar_html($titulo) ?></h2>
+        <p id="mensaje-error-pagina" data-error-mensaje><?= escapar_html($mensaje) ?></p>
+        <div class="acciones-confirmacion">
+            <a href="<?= $rutaVolver ?>" class="btn btn-primary" autofocus>Volver</a>
+        </div>
+    </dialog>
     <?php
     mostrar_pie($usuario !== null);
     exit;

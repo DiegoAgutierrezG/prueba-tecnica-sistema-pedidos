@@ -214,9 +214,15 @@ body.pagina-ingreso {
     height: 46px;
 }
 
-.aviso-expiracion .dialogo-aviso-icono {
+.aviso-expiracion .dialogo-aviso-icono,
+.aviso-bloqueo .dialogo-aviso-icono {
     background: #fff3d9;
     color: #a4660c;
+}
+
+.aviso-credenciales .dialogo-aviso-icono {
+    background: #fff0ef;
+    color: #b42332;
 }
 
 .dialogo-aviso h2 {

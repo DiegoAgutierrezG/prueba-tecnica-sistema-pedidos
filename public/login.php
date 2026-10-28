@@ -12,11 +12,12 @@ try {
     }
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la base de datos. Inténtalo de nuevo en unos minutos.');
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo comprobar tu sesión. Inténtalo de nuevo en unos minutos.');
 }
 
 $correo = '';
 $mensaje = '';
+$avisoBloqueo = false;
 $mostrarAvisoCierre = ($_SESSION['aviso_cierre'] ?? false) === true;
 $mostrarAvisoExpiracion = ($_SESSION['aviso_expiracion'] ?? false) === true;
 unset($_SESSION['aviso_cierre'], $_SESSION['aviso_expiracion']);
@@ -47,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 http_response_code(429);
                 header('Retry-After: 900');
                 $mensaje = 'Demasiados intentos de ingreso. Inténtalo de nuevo en 15 minutos.';
+                $avisoBloqueo = true;
             }
         } catch (Throwable $error) {
             error_log((string) $error);
@@ -55,9 +57,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($mensaje === '') {
-        $mensaje = 'Correo o contraseña incorrectos.';
+        $mensaje = 'Correo o contraseña incorrectos. Revisa los datos e inténtalo de nuevo.';
     }
 }
+
+$tipoAviso = $mensaje !== ''
+    ? ($avisoBloqueo ? 'bloqueo' : 'credenciales')
+    : ($mostrarAvisoExpiracion ? 'expiracion' : ($mostrarAvisoCierre ? 'cierre' : null));
+$tituloAviso = match ($tipoAviso) {
+    'credenciales' => 'Credenciales incorrectas',
+    'bloqueo' => 'Acceso temporalmente bloqueado',
+    'expiracion' => 'Sesión vencida',
+    default => 'Sesión cerrada',
+};
+$descripcionAviso = $mensaje !== '' ? $mensaje : ($mostrarAvisoExpiracion
+    ? 'Tu sesión terminó por seguridad. Ingresa de nuevo para continuar.'
+    : 'Tu acceso se cerró correctamente. Puedes volver a ingresar cuando lo necesites.');
 
 mostrar_cabecera('Iniciar sesión', null, true);
 ?>
@@ -81,7 +96,7 @@ mostrar_cabecera('Iniciar sesión', null, true);
             <p class="subtitulo-formulario">Ingresa tus credenciales para continuar.</p>
 
             <?php if ($mensaje !== ''): ?>
-                <div class="alert alert-danger" role="alert"><?= escapar_html($mensaje) ?></div>
+                <div id="aviso-error-ingreso" class="alert alert-danger" role="alert"><?= escapar_html($mensaje) ?></div>
             <?php endif; ?>
 
             <form method="post" action="/login.php" class="formulario-ingreso">
@@ -113,26 +128,28 @@ mostrar_cabecera('Iniciar sesión', null, true);
         </div>
     </section>
 </div>
-<?php if ($mostrarAvisoCierre || $mostrarAvisoExpiracion): ?>
-    <dialog id="dialogo-aviso" class="dialogo-aviso<?= $mostrarAvisoExpiracion ? ' aviso-expiracion' : '' ?>"
+<?php if ($tipoAviso !== null): ?>
+    <dialog id="dialogo-aviso" class="dialogo-aviso<?= $tipoAviso !== 'cierre' ? ' aviso-' . escapar_html($tipoAviso) : '' ?>"
         aria-labelledby="titulo-aviso" aria-describedby="descripcion-aviso">
         <span class="dialogo-aviso-icono" aria-hidden="true">
-            <?php if ($mostrarAvisoExpiracion): ?>
+            <?php if ($tipoAviso === 'credenciales'): ?>
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="m18 18 12 12m0-12L18 30"/></svg>
+            <?php elseif ($tipoAviso === 'expiracion' || $tipoAviso === 'bloqueo'): ?>
                 <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="M24 14v11l7 4"/></svg>
             <?php else: ?>
                 <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="m16 24 5.5 5.5L32 19"/></svg>
             <?php endif; ?>
         </span>
-        <h2 id="titulo-aviso"><?= $mostrarAvisoExpiracion ? 'Sesión vencida' : 'Sesión cerrada' ?></h2>
-        <p id="descripcion-aviso"><?= $mostrarAvisoExpiracion
-            ? 'Tu sesión terminó por seguridad. Ingresa de nuevo para continuar.'
-            : 'Tu acceso se cerró correctamente. Puedes volver a ingresar cuando lo necesites.' ?></p>
+        <h2 id="titulo-aviso"><?= escapar_html($tituloAviso) ?></h2>
+        <p id="descripcion-aviso"><?= escapar_html($descripcionAviso) ?></p>
         <form method="dialog">
             <button type="submit" class="boton-cerrar-aviso" autofocus>Entendido</button>
         </form>
     </dialog>
-    <noscript><p class="mensaje-sin-script" role="status"><?= $mostrarAvisoExpiracion
-        ? 'Tu sesión venció. Ingresa de nuevo para continuar.'
-        : 'La sesión se cerró correctamente.' ?></p></noscript>
+    <?php if ($mensaje === ''): ?>
+        <noscript><p class="mensaje-sin-script" role="status"><?= $mostrarAvisoExpiracion
+            ? 'Tu sesión venció. Ingresa de nuevo para continuar.'
+            : 'La sesión se cerró correctamente.' ?></p></noscript>
+    <?php endif; ?>
 <?php endif; ?>
 <?php mostrar_pie(); ?>
