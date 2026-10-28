@@ -12,6 +12,28 @@ INSERT INTO roles (id, codigo, nombre) VALUES
     (2, 'vendedor', 'Vendedor'),
     (3, 'bodega', 'Bodega');
 
+-- Selección inicial de bancos colombianos; no incluye billeteras ni SEDPE.
+-- Nombres contrastados con la Superintendencia Financiera de Colombia (octubre de 2026).
+INSERT INTO bancos (nombre) VALUES
+    ('Bancolombia'),
+    ('Banco de Bogotá'),
+    ('Banco Davivienda'),
+    ('BBVA Colombia'),
+    ('Banco de Occidente'),
+    ('Banco Popular'),
+    ('Banco Caja Social'),
+    ('Banco Agrario de Colombia'),
+    ('Banco AV Villas'),
+    ('Banco GNB Sudameris'),
+    ('Banco Falabella'),
+    ('Banco Pichincha'),
+    ('Banco W'),
+    ('Banco Finandina'),
+    ('Bancoomeva'),
+    ('Banco Davibank'),
+    ('Itaú Colombia'),
+    ('Bancamía');
+
 INSERT INTO usuarios (id, nombre, correo, clave_hash, rol_id, activo) VALUES
     (1, 'Administrador de prueba', 'admin@andina.co', '$2y$10$hnqJZIHTI9hIvRKTpoOZl.JP/oQEaLDXIw9Zv0DLLDbPWssPECC3.', 1, 1),
     (2, 'Vendedor de prueba', 'vendedor@andina.co', '$2y$10$hnqJZIHTI9hIvRKTpoOZl.JP/oQEaLDXIw9Zv0DLLDbPWssPECC3.', 2, 1),

@@ -13,6 +13,15 @@ CREATE TABLE roles (
     UNIQUE KEY uq_roles_codigo (codigo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE bancos (
+    id SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(100) NOT NULL,
+    activo TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_bancos_nombre (nombre),
+    CONSTRAINT chk_bancos_activo CHECK (activo IN (0, 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE usuarios (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     nombre VARCHAR(100) NOT NULL,
@@ -146,11 +155,19 @@ CREATE TABLE pagos (
     pedido_id BIGINT UNSIGNED NOT NULL,
     valor DECIMAL(14, 2) NOT NULL,
     metodo ENUM('transferencia', 'efectivo', 'cheque') NOT NULL,
+    banco_id SMALLINT UNSIGNED NULL,
+    banco VARCHAR(100) NULL,
+    referencia VARCHAR(100) NULL,
+    caja VARCHAR(60) NULL,
+    numero_cheque VARCHAR(100) NULL,
     fecha DATETIME(6) NOT NULL,
     usuario_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     KEY idx_pagos_pedido (pedido_id),
     KEY idx_pagos_usuario (usuario_id),
+    KEY idx_pagos_banco (banco_id),
+    CONSTRAINT fk_pagos_banco FOREIGN KEY (banco_id)
+        REFERENCES bancos (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT fk_pagos_pedido FOREIGN KEY (pedido_id)
         REFERENCES pedidos (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT fk_pagos_usuario FOREIGN KEY (usuario_id)
