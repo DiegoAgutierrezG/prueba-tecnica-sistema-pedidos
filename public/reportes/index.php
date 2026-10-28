@@ -29,6 +29,10 @@ mostrar_cabecera('Ventas del mes', $usuario, false, 'reportes');
     <h1 class="h2 mb-2">Ventas del mes</h1>
     <p class="text-secondary mb-0">Consulta pedidos confirmados, despachados y entregados según su fecha de creación en Bogotá.</p>
 </div>
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a href="/reportes/cartera.php" class="btn btn-outline-primary">Cartera por cliente</a>
+    <a href="/reportes/inventario.php" class="btn btn-outline-primary">Productos bajo mínimo</a>
+</div>
 <form action="/reportes/index.php" method="get" class="card border-0 shadow-sm mb-4">
     <div class="card-body d-flex flex-wrap align-items-end gap-3">
         <div>
@@ -50,6 +54,32 @@ mostrar_cabecera('Ventas del mes', $usuario, false, 'reportes');
     </div></div></div>
 </div>
 <p class="text-secondary small mb-3">Incluye el mes completo, desde el día 1 a las 00:00 hasta antes del día 1 del mes siguiente, en hora de Bogotá. Se toma la fecha de creación del pedido y su estado actual; los pagos no se suman de nuevo.</p>
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4 pb-0"><h3 class="h5 mb-3">Ventas por vendedor</h3></div>
+    <?php if ($reporte['vendedores'] === []): ?>
+        <p class="px-4 pb-4 text-secondary mb-0">No hay ventas para distribuir en este mes.</p>
+    <?php else: ?>
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr>
+                <th scope="col" class="ps-4">Vendedor</th>
+                <th scope="col">Pedidos</th>
+                <th scope="col">Total vendido</th>
+                <th scope="col" class="pe-4">Participación</th>
+            </tr></thead>
+            <tbody>
+                <?php $totalCentavos = centavos_de_decimal($reporte['total']); ?>
+                <?php foreach ($reporte['vendedores'] as $vendedor): ?>
+                    <tr>
+                        <td class="ps-4"><?= escapar_html($vendedor['nombre']) ?></td>
+                        <td><?= (int) $vendedor['cantidad'] ?></td>
+                        <td class="text-nowrap"><?= escapar_html(mostrar_importe_ventas(decimal_de_centavos($vendedor['centavos']))) ?></td>
+                        <td class="pe-4"><?= $totalCentavos > 0 ? escapar_html(number_format(100 * $vendedor['centavos'] / $totalCentavos, 1, ',', '.')) : '0,0' ?> %</td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
+</div>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-4 pb-0"><h3 class="h5 mb-3">Pedidos incluidos</h3></div>
     <?php if ($reporte['pedidos'] === []): ?>
