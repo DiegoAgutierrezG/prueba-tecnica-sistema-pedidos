@@ -128,8 +128,11 @@ mostrar_cabecera('Pagos de ' . $pedido['consecutivo'], $usuario, false, 'pagos')
             <div class="col-12 detalle-metodo-pago" data-detalle-metodo="transferencia">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label for="banco_transferencia" class="form-label">Banco de origen</label>
-                        <input id="banco_transferencia" name="banco_transferencia" type="text" list="bancos-pago" class="form-control" maxlength="100" value="<?= escapar_html($datosFormulario['banco_transferencia']) ?>" placeholder="Escribe para buscar un banco" autocomplete="off">
+                        <div class="campo-busqueda" data-buscador-banco>
+                            <label for="banco_transferencia" class="form-label">Banco de origen</label>
+                            <input id="banco_transferencia" name="banco_transferencia" type="search" list="bancos-pago" class="form-control" maxlength="100" value="<?= escapar_html($datosFormulario['banco_transferencia']) ?>" placeholder="Escribe o selecciona un banco" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="resultados-banco-transferencia" aria-expanded="false">
+                            <div id="resultados-banco-transferencia" class="resultados-busqueda" data-resultados-banco role="listbox" aria-label="Bancos disponibles" hidden></div>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label for="referencia" class="form-label">Número de referencia</label>
@@ -144,8 +147,11 @@ mostrar_cabecera('Pagos de ' . $pedido['consecutivo'], $usuario, false, 'pagos')
             <div class="col-12 detalle-metodo-pago" data-detalle-metodo="cheque">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label for="banco_cheque" class="form-label">Banco emisor</label>
-                        <input id="banco_cheque" name="banco_cheque" type="text" list="bancos-pago" class="form-control" maxlength="100" value="<?= escapar_html($datosFormulario['banco_cheque']) ?>" placeholder="Escribe para buscar un banco" autocomplete="off">
+                        <div class="campo-busqueda" data-buscador-banco>
+                            <label for="banco_cheque" class="form-label">Banco emisor</label>
+                            <input id="banco_cheque" name="banco_cheque" type="search" list="bancos-pago" class="form-control" maxlength="100" value="<?= escapar_html($datosFormulario['banco_cheque']) ?>" placeholder="Escribe o selecciona un banco" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="resultados-banco-cheque" aria-expanded="false">
+                            <div id="resultados-banco-cheque" class="resultados-busqueda" data-resultados-banco role="listbox" aria-label="Bancos disponibles" hidden></div>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label for="numero_cheque" class="form-label">Número de cheque</label>
@@ -185,5 +191,5 @@ mostrar_cabecera('Pagos de ' . $pedido['consecutivo'], $usuario, false, 'pagos')
         </table></div>
     <?php endif; ?>
 </div>
-<script src="/assets/js/pagos.js?v=1" defer></script>
+<script src="/assets/js/pagos.js?v=2" defer></script>
 <?php mostrar_pie(true); ?>
