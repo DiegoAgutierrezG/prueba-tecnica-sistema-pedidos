@@ -6,6 +6,7 @@ require_once __DIR__ . '/sesion.php';
 
 const PERMISOS_POR_ROL = [
     'administrador' => [
+        'usuarios.administrar',
         'clientes.ver', 'clientes.editar', 'clientes.activar',
         'productos.ver', 'productos.administrar',
         'pedidos.ver', 'pedidos.crear', 'pedidos.despachar', 'pedidos.anular',
@@ -27,7 +28,7 @@ const SECCIONES = [
     'clientes' => ['nombre' => 'Clientes', 'permiso' => 'clientes.ver', 'descripcion' => 'Consulta de clientes y cupos de crédito.', 'ruta' => '/clientes/index.php'],
     'productos' => ['nombre' => 'Productos', 'permiso' => 'productos.ver', 'descripcion' => 'Catálogo, precios y existencias.', 'ruta' => '/productos/index.php'],
     'pedidos' => ['nombre' => 'Pedidos', 'permiso' => 'pedidos.ver', 'descripcion' => 'Seguimiento de pedidos y sus estados.', 'ruta' => '/pedidos/index.php'],
-    'pagos' => ['nombre' => 'Pagos', 'permiso' => 'pagos.registrar', 'descripcion' => 'Registro de abonos a pedidos.', 'ruta' => '/pagos/index.php'],
+    'pagos' => ['nombre' => 'Pagos', 'permiso' => 'pagos.registrar', 'descripcion' => 'Abonos, historial y devoluciones de pedidos.', 'ruta' => '/pagos/index.php'],
     'reportes' => ['nombre' => 'Reportes', 'permiso' => 'reportes.ver', 'descripcion' => 'Ventas del mes, participación por vendedor y cartera.', 'ruta' => '/reportes/index.php'],
 ];
 
@@ -55,6 +56,7 @@ const SUBOPCIONES_MENU = [
         ['nombre' => 'Nuevo pedido', 'ruta' => '/pedidos/nuevo.php', 'permiso' => 'pedidos.crear'],
     ],
     'pagos' => [
+        ['nombre' => 'Historial de pagos', 'ruta' => '/pagos/index.php?vista=historial', 'permiso' => 'pagos.registrar'],
         ['nombre' => 'Devoluciones', 'ruta' => '/pagos/index.php?vista=devoluciones', 'permiso' => 'pagos.devolver'],
         ['nombre' => 'Ver todos los pedidos', 'ruta' => '/pedidos/index.php', 'permiso' => 'pedidos.ver'],
     ],
@@ -101,7 +103,7 @@ function exigir_permiso(string $permiso): array
 
     if (!tiene_permiso($usuario, $permiso)) {
         require_once __DIR__ . '/vista.php';
-        mostrar_error(403, 'Acceso denegado', 'Tu usuario no tiene permiso para entrar a esta sección.', $usuario);
+        mostrar_error(403, 'Acceso denegado', 'Tu usuario no tiene permiso para entrar a esta sección. Si necesitas acceso, solicítalo al administrador.', $usuario);
     }
 
     return $usuario;
