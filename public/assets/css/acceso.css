@@ -116,14 +116,6 @@ body.pagina-ingreso {
     line-height: 1.08;
 }
 
-.mensaje-bienvenida > p:last-child {
-    max-width: 370px;
-    margin: 18px 0 0;
-    color: #e2f7e9;
-    font-size: 17px;
-    line-height: 1.55;
-}
-
 .ilustracion-ingreso {
     position: absolute;
     z-index: 1;
@@ -424,12 +416,6 @@ body.pagina-ingreso {
 
     .mensaje-bienvenida h2 {
         font-size: 34px;
-    }
-
-    .mensaje-bienvenida > p:last-child {
-        max-width: 360px;
-        margin-top: 11px;
-        font-size: 14px;
     }
 
     .ilustracion-ingreso {

@@ -40,7 +40,7 @@ function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngres
     <link rel="icon" type="image/png" href="/assets/img/icono.png">
     <link rel="stylesheet" href="/assets/bootstrap/bootstrap.min.css">
     <?php if ($esIngreso): ?>
-        <link rel="stylesheet" href="/assets/css/acceso.css?v=11">
+        <link rel="stylesheet" href="/assets/css/acceso.css?v=12">
         <script src="/assets/js/acceso.js?v=4" defer></script>
     <?php elseif ($usuario !== null): ?>
         <link rel="stylesheet" href="/assets/css/aplicacion.css?v=25">

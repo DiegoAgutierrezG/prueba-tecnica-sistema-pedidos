@@ -84,9 +84,8 @@ mostrar_cabecera('Iniciar sesión', null, true);
         <div class="mensaje-bienvenida">
             <p class="etiqueta-panel">SISTEMA DE PEDIDOS</p>
             <h2 id="titulo-bienvenida">Bienvenido <br>de nuevo</h2>
-            <p>Tu espacio para gestionar pedidos, inventario y pagos de forma sencilla.</p>
         </div>
-        <img class="ilustracion-ingreso" src="/assets/img/gestion-pedidos-v2.png" alt="" aria-hidden="true">
+        <img class="ilustracion-ingreso" src="/assets/img/gestion-pedidos-v2.png?v=2" alt="" aria-hidden="true">
     </section>
 
     <section class="panel-formulario" aria-labelledby="titulo-ingreso">
