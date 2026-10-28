@@ -34,7 +34,9 @@ $filtrosEnlace = ['busqueda' => $busqueda, 'categoria' => $categoria, 'estado' =
 
 try {
     $conexion = conectar_bd();
-    $categorias = $conexion->query('SELECT id, nombre FROM categorias ORDER BY nombre, id')->fetchAll();
+    $consultaCategorias = $conexion->prepare('SELECT id, nombre FROM categorias ORDER BY nombre, id');
+    $consultaCategorias->execute();
+    $categorias = $consultaCategorias->fetchAll();
 
     if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 150) {
         $mensajeFiltro = 'La búsqueda admite hasta 150 caracteres.';
@@ -106,9 +108,15 @@ mostrar_cabecera('Productos', $usuario, false, 'productos');
         <h1 class="h2 mb-2">Productos</h1>
         <p class="text-secondary mb-0">Consulta precios de lista y existencias por categoría.</p>
     </div>
-    <?php if ($puedeAdministrar): ?>
-        <a href="/productos/formulario.php" class="btn btn-primary">Nuevo producto</a>
-    <?php endif; ?>
+    <div class="d-flex flex-wrap gap-2">
+        <?php if (tiene_permiso($usuario, 'reportes.ver')): ?>
+            <a href="/reportes/inventario.php" class="btn btn-outline-primary">Ver productos bajo mínimo</a>
+        <?php endif; ?>
+        <?php if ($puedeAdministrar): ?>
+            <a href="/productos/entrada.php" class="btn btn-outline-primary">Añadir stock</a>
+            <a href="/productos/formulario.php" class="btn btn-primary">Nuevo producto</a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php if (is_string($aviso) && $aviso !== ''): ?>
@@ -210,10 +218,10 @@ mostrar_cabecera('Productos', $usuario, false, 'productos');
                                     <td class="pe-4">
                                         <div class="d-flex flex-wrap gap-2">
                                             <a href="/productos/formulario.php?id=<?= (int) $producto['id'] ?>" class="btn btn-outline-secondary btn-sm">Editar</a>
-                                            <form action="/productos/estado.php" method="post" class="m-0">
+                                            <form action="/productos/estado.php" method="post" class="m-0 formulario-estado-producto" data-nombre-producto="<?= escapar_html($producto['nombre']) ?>">
                                                 <input type="hidden" name="token_csrf" value="<?= escapar_html(token_csrf()) ?>">
                                                 <input type="hidden" name="id" value="<?= (int) $producto['id'] ?>">
-                                                <button type="submit" name="accion" value="<?= (int) $producto['activo'] === 1 ? 'desactivar' : 'activar' ?>" class="btn btn-outline-<?= (int) $producto['activo'] === 1 ? 'danger' : 'success' ?> btn-sm" onclick="return confirm('¿Confirmas este cambio de estado?')">
+                                                <button type="submit" name="accion" value="<?= (int) $producto['activo'] === 1 ? 'desactivar' : 'activar' ?>" class="btn btn-outline-<?= (int) $producto['activo'] === 1 ? 'danger' : 'success' ?> btn-sm">
                                                     <?= (int) $producto['activo'] === 1 ? 'Desactivar' : 'Reactivar' ?>
                                                 </button>
                                             </form>
@@ -240,5 +248,20 @@ mostrar_cabecera('Productos', $usuario, false, 'productos');
             </nav>
         <?php endif; ?>
     <?php endif; ?>
+<?php endif; ?>
+<?php if ($puedeAdministrar): ?>
+    <dialog id="dialogo-estado-producto" class="dialogo-confirmacion"
+        aria-labelledby="titulo-estado-producto" aria-describedby="descripcion-estado-producto">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="14" width="28" height="25" rx="3"/><path d="M10 21h28M17 14v-5h14v5M19 28h10m-5-5v10"/></svg>
+        </span>
+        <h2 id="titulo-estado-producto">Cambiar estado del producto</h2>
+        <p id="descripcion-estado-producto"></p>
+        <div class="acciones-confirmacion">
+            <button type="button" class="btn btn-outline-secondary" data-cancelar-estado autofocus>Cancelar</button>
+            <button type="button" class="btn btn-primary" data-confirmar-estado>Confirmar</button>
+        </div>
+    </dialog>
+    <script src="/assets/js/productos.js?v=1" defer></script>
 <?php endif; ?>
 <?php mostrar_pie(true); ?>

@@ -24,7 +24,7 @@ $datos = [
     'sku' => '',
     'nombre' => '',
     'categoria_id' => '',
-    'precio_lista' => '0.00',
+    'precio_lista' => '0',
     'exento_iva' => '0',
     'stock_minimo' => '0',
     'stock_inicial' => '0',
@@ -34,7 +34,9 @@ $productoActual = null;
 
 try {
     $conexion = conectar_bd();
-    $categorias = $conexion->query('SELECT id, nombre FROM categorias ORDER BY nombre, id')->fetchAll();
+    $consultaCategorias = $conexion->prepare('SELECT id, nombre FROM categorias ORDER BY nombre, id');
+    $consultaCategorias->execute();
+    $categorias = $consultaCategorias->fetchAll();
 
     if ($esEdicion) {
         $consulta = $conexion->prepare(
@@ -137,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $titulo = $esEdicion ? 'Editar producto' : 'Nuevo producto';
+$precioFormulario = preg_replace('/^([0-9]+)\.00$/', '$1', $datos['precio_lista']);
 mostrar_cabecera($titulo, $usuario, false, 'productos');
 ?>
 <nav aria-label="Ruta de navegación" class="mb-4">
@@ -189,7 +192,7 @@ mostrar_cabecera($titulo, $usuario, false, 'productos');
                         </div>
                         <div class="col-md-6">
                             <label for="precio_lista" class="form-label">Precio de lista sin IVA (COP)</label>
-                            <input id="precio_lista" name="precio_lista" type="text" inputmode="decimal" class="form-control <?= isset($errores['precio_lista']) ? 'is-invalid' : '' ?>" value="<?= escapar_html($datos['precio_lista']) ?>" maxlength="20" placeholder="28000,00" required>
+                            <input id="precio_lista" name="precio_lista" type="text" inputmode="decimal" class="form-control <?= isset($errores['precio_lista']) ? 'is-invalid' : '' ?>" value="<?= escapar_html($precioFormulario) ?>" maxlength="20" placeholder="28000" required>
                             <?php if (isset($errores['precio_lista'])): ?><div class="invalid-feedback"><?= escapar_html($errores['precio_lista']) ?></div><?php endif; ?>
                             <div class="form-text">Se aceptan coma o punto decimal, sin separadores de miles.</div>
                         </div>
@@ -212,7 +215,7 @@ mostrar_cabecera($titulo, $usuario, false, 'productos');
                     </div>
 
                     <?php if ($esEdicion): ?>
-                        <div class="alert alert-info mb-4" role="note">Stock actual: <strong><?= (int) $productoActual['stock'] ?> unidades</strong>. Editar este formulario no cambia existencias; todo cambio de stock debe tener su movimiento de inventario.</div>
+                        <div class="alert alert-info mb-4" role="note">Stock actual: <strong><?= (int) $productoActual['stock'] ?> unidades</strong>. Para reponer existencias, usa <a href="/productos/entrada.php" class="alert-link">Añadir stock</a>.</div>
                     <?php else: ?>
                         <div class="mb-4">
                             <label for="stock_inicial" class="form-label">Stock inicial</label>

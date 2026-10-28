@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/moneda.php';
+
 function texto_producto(mixed $valor): string
 {
     return is_string($valor) ? trim($valor) : '';
@@ -99,7 +101,79 @@ function validar_datos_producto(array $entrada, array $categorias, bool $esCreac
 
 function mostrar_precio(string $valor): string
 {
-    [$entero, $centavos] = explode('.', $valor);
-    $agrupado = preg_replace('/\B(?=(\d{3})+(?!\d))/', '.', $entero);
-    return '$ ' . $agrupado . ',' . $centavos;
+    return mostrar_decimal_cop($valor);
+}
+
+final class ReglaInventario extends RuntimeException
+{
+}
+
+function registrar_entradas_stock(PDO $conexion, int $usuarioId, mixed $ids, mixed $cantidades): int
+{
+    if (!is_array($ids) || !is_array($cantidades) || count($ids) !== count($cantidades)
+        || count($ids) > 30 || array_keys($ids) !== array_keys($cantidades)) {
+        throw new ReglaInventario('Revisa la lista de productos y cantidades.', 422);
+    }
+
+    $entradas = [];
+    foreach ($ids as $posicion => $idRecibido) {
+        $cantidadRecibida = $cantidades[$posicion];
+        if (!is_string($idRecibido) || !is_string($cantidadRecibida)) {
+            throw new ReglaInventario('Selecciona un producto y una cantidad válida en cada fila.', 422);
+        }
+        $idRecibido = trim($idRecibido);
+        $cantidadRecibida = trim($cantidadRecibida);
+        if ($idRecibido === '' && $cantidadRecibida === '') continue;
+
+        $id = filter_var($idRecibido, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $cantidad = normalizar_unidades($cantidadRecibida);
+        if ($id === false || $cantidad === null || $cantidad === '0') {
+            throw new ReglaInventario('Selecciona un producto y una cantidad entera mayor que cero en cada fila.', 422);
+        }
+        if (isset($entradas[$id])) {
+            throw new ReglaInventario('Cada producto debe aparecer una sola vez en la entrada.', 422);
+        }
+        $entradas[$id] = (int) $cantidad;
+    }
+
+    if ($entradas === []) {
+        throw new ReglaInventario('Agrega al menos un producto con una cantidad mayor que cero.', 422);
+    }
+
+    ksort($entradas, SORT_NUMERIC);
+    $conexion->beginTransaction();
+    try {
+        $consultar = $conexion->prepare('SELECT stock, activo FROM productos WHERE id = :id FOR UPDATE');
+        $actualizar = $conexion->prepare('UPDATE productos SET stock = stock + :cantidad WHERE id = :id');
+        $registrar = $conexion->prepare(
+            "INSERT INTO movimientos_inventario
+             (producto_id, tipo, cantidad, pedido_id, usuario_id, creado_en)
+             VALUES (:producto_id, 'entrada', :cantidad, NULL, :usuario_id, UTC_TIMESTAMP(6))"
+        );
+
+        foreach ($entradas as $id => $cantidad) {
+            $consultar->execute(['id' => $id]);
+            $producto = $consultar->fetch();
+            if ($producto === false || (int) $producto['activo'] !== 1) {
+                throw new ReglaInventario('Uno de los productos ya no está activo. Actualiza la lista.', 409);
+            }
+            if ((int) $producto['stock'] > 4294967295 - $cantidad) {
+                throw new ReglaInventario('La entrada supera el máximo de existencias de uno de los productos.', 422);
+            }
+
+            $actualizar->execute(['cantidad' => $cantidad, 'id' => $id]);
+            $registrar->execute([
+                'producto_id' => $id,
+                'cantidad' => $cantidad,
+                'usuario_id' => $usuarioId,
+            ]);
+        }
+
+        $conexion->commit();
+    } catch (Throwable $error) {
+        if ($conexion->inTransaction()) $conexion->rollBack();
+        throw $error;
+    }
+
+    return count($entradas);
 }
