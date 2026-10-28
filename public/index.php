@@ -11,6 +11,25 @@ $acciones = array_filter(
     static fn (string $nombre, string $permiso): bool => tiene_permiso($usuario, $permiso),
     ARRAY_FILTER_USE_BOTH
 );
+$estadosPedido = ['borrador' => 0, 'confirmado' => 0, 'despachado' => 0, 'entregado' => 0, 'anulado' => 0];
+$nombresEstado = [
+    'borrador' => 'en borrador', 'confirmado' => 'confirmados',
+    'despachado' => 'despachados', 'entregado' => 'entregados', 'anulado' => 'anulados',
+];
+try {
+    $conexion = conectar_bd();
+    $consulta = $conexion->prepare('SELECT estado, COUNT(*) AS cantidad FROM pedidos GROUP BY estado');
+    $consulta->execute();
+    foreach ($consulta->fetchAll() as $fila) {
+        $estadosPedido[$fila['estado']] = (int) $fila['cantidad'];
+    }
+    $consulta = $conexion->prepare('SELECT COUNT(*) FROM productos WHERE activo = 1 AND stock < stock_minimo');
+    $consulta->execute();
+    $productosBajoMinimo = (int) $consulta->fetchColumn();
+} catch (Throwable $error) {
+    error_log((string) $error);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el resumen de inicio.', $usuario);
+}
 
 mostrar_cabecera('Inicio', $usuario, false, 'inicio');
 ?>
@@ -31,8 +50,15 @@ mostrar_cabecera('Inicio', $usuario, false, 'inicio');
     </div>
 </div>
 
-<div class="alert alert-info" role="status">
-    Clientes, productos, pedidos, pagos y ventas del mes ya están disponibles.
+<div class="row row-cols-2 row-cols-md-3 row-cols-xl-6 g-3 mb-4" aria-label="Resumen del sistema">
+    <?php foreach ($estadosPedido as $estado => $cantidad): ?>
+        <div class="col"><a class="card h-100 border-0 shadow-sm text-decoration-none text-body" href="/pedidos/index.php?estado=<?= escapar_html($estado) ?>">
+            <div class="card-body"><span class="text-secondary small">Pedidos <?= escapar_html($nombresEstado[$estado]) ?></span><strong class="d-block fs-3 mt-2"><?= $cantidad ?></strong></div>
+        </a></div>
+    <?php endforeach; ?>
+    <div class="col"><a class="card h-100 border-0 shadow-sm text-decoration-none text-body" href="<?= tiene_permiso($usuario, 'reportes.ver') ? '/reportes/inventario.php' : '/productos/index.php' ?>">
+        <div class="card-body"><span class="text-secondary small">Productos bajo mínimo</span><strong class="d-block fs-3 mt-2"><?= $productosBajoMinimo ?></strong></div>
+    </a></div>
 </div>
 
 <h2 class="h4 mt-5 mb-3">Secciones de tu perfil</h2>

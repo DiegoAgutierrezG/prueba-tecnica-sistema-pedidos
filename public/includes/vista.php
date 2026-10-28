@@ -28,6 +28,7 @@ function icono_menu(string $nombre): string
 
 function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngreso = false, ?string $seccionActiva = null): void
 {
+    $rutaActual = $_SERVER['REQUEST_URI'] ?? '';
     ?>
 <!doctype html>
 <html lang="es">
@@ -41,8 +42,8 @@ function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngres
         <link rel="stylesheet" href="/assets/css/acceso.css?v=10">
         <script src="/assets/js/acceso.js?v=3" defer></script>
     <?php elseif ($usuario !== null): ?>
-        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=9">
-        <script src="/assets/js/navegacion.js?v=2" defer></script>
+        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=16">
+        <script src="/assets/js/navegacion.js?v=4" defer></script>
     <?php endif; ?>
 </head>
 <body class="<?= $esIngreso ? 'pagina-ingreso' : ($usuario !== null ? 'pagina-aplicacion' : 'bg-light') ?>">
@@ -58,9 +59,34 @@ function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngres
                 <?= icono_menu('inicio') ?><span class="texto-menu">Inicio</span>
             </a>
             <?php foreach (secciones_visibles($usuario) as $clave => $seccion): ?>
-                <a href="<?= escapar_html($seccion['ruta']) ?>" class="enlace-menu<?= $seccionActiva === $clave ? ' activo' : '' ?>" title="<?= escapar_html($seccion['nombre']) ?>"<?= $seccionActiva === $clave ? ' aria-current="page"' : '' ?>>
-                    <?= icono_menu($clave) ?><span class="texto-menu"><?= escapar_html($seccion['nombre']) ?></span>
-                </a>
+                <?php
+                $subopciones = subopciones_visibles($usuario, $clave);
+                $subopcionActiva = in_array($rutaActual, array_column($subopciones, 'ruta'), true);
+                $paginaPrincipal = $seccionActiva === $clave && !$subopcionActiva
+                    && parse_url($rutaActual, PHP_URL_PATH) === $seccion['ruta'];
+                ?>
+                <div class="grupo-menu"<?= $subopciones !== [] ? ' data-submenu' : '' ?>>
+                    <div class="fila-menu<?= $seccionActiva === $clave ? ' activo' : '' ?>">
+                        <a href="<?= escapar_html($seccion['ruta']) ?>" class="enlace-menu" title="<?= escapar_html($seccion['nombre']) ?>"<?= $paginaPrincipal ? ' aria-current="page"' : '' ?>>
+                            <?= icono_menu($clave) ?><span class="texto-menu"><?= escapar_html($seccion['nombre']) ?></span>
+                        </a>
+                        <?php if ($subopciones !== []): ?>
+                            <button type="button" class="boton-submenu" data-alternar-submenu
+                                aria-controls="submenu-<?= escapar_html($clave) ?>" aria-expanded="false"
+                                aria-label="Opciones de <?= escapar_html($seccion['nombre']) ?>">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($subopciones !== []): ?>
+                        <ul id="submenu-<?= escapar_html($clave) ?>" class="submenu-menu" aria-label="Accesos de <?= escapar_html($seccion['nombre']) ?>" hidden>
+                            <?php foreach ($subopciones as $opcion): ?>
+                                <?php $esActual = $seccionActiva === $clave && $rutaActual === $opcion['ruta']; ?>
+                                <li><a href="<?= escapar_html($opcion['ruta']) ?>" class="enlace-submenu<?= $esActual ? ' activo' : '' ?>"<?= $esActual ? ' aria-current="page"' : '' ?>><?= escapar_html($opcion['nombre']) ?></a></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
             <?php endforeach; ?>
         </nav>
 

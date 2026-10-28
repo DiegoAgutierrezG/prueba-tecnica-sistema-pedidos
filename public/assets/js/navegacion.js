@@ -12,6 +12,97 @@
     const clavePreferencia = 'andina_menu_reducido';
     let reducido = false;
     let abierto = false;
+    let submenuAbierto = null;
+    let cierrePendiente;
+
+    function cerrarSubmenu() {
+        clearTimeout(cierrePendiente);
+        if (!submenuAbierto) return;
+        submenuAbierto.panel.hidden = true;
+        submenuAbierto.boton.setAttribute('aria-expanded', 'false');
+        submenuAbierto = null;
+    }
+
+    function previsualizarMenu() {
+        cuerpo.classList.toggle('menu-previsualizado', !pantallaPequena.matches && reducido);
+    }
+
+    function cerrarPrevisualizacion() {
+        if (menu.contains(document.activeElement)) return;
+        cerrarSubmenu();
+        cuerpo.classList.remove('menu-previsualizado');
+    }
+
+    function abrirSubmenu(submenu) {
+        clearTimeout(cierrePendiente);
+        if (submenuAbierto !== submenu) cerrarSubmenu();
+        submenuAbierto = submenu;
+        submenu.panel.hidden = false;
+        submenu.boton.setAttribute('aria-expanded', 'true');
+        previsualizarMenu();
+    }
+
+    menu.querySelectorAll('[data-submenu]').forEach((grupo) => {
+        const submenu = {
+            grupo,
+            boton: grupo.querySelector('[data-alternar-submenu]'),
+            panel: grupo.querySelector('.submenu-menu'),
+        };
+        const enlacePrincipal = grupo.querySelector('.enlace-menu');
+        // Abrir por movimiento evita que el cambio de altura active otra sección por sí solo.
+        grupo.addEventListener('pointermove', (evento) => {
+            if (evento.pointerType === 'touch' || pantallaPequena.matches) return;
+            abrirSubmenu(submenu);
+        });
+        submenu.boton.addEventListener('click', () => {
+            if (submenuAbierto === submenu) cerrarSubmenu();
+            else abrirSubmenu(submenu);
+        });
+        grupo.addEventListener('focusin', (evento) => {
+            if (evento.target === enlacePrincipal && !pantallaPequena.matches) abrirSubmenu(submenu);
+        });
+        grupo.addEventListener('focusout', () => {
+            setTimeout(() => {
+                if (submenuAbierto === submenu && !grupo.contains(document.activeElement)
+                    && (pantallaPequena.matches || !grupo.matches(':hover'))) cerrarSubmenu();
+            }, 0);
+        });
+        grupo.addEventListener('keydown', (evento) => {
+            if (evento.key === 'ArrowRight') {
+                evento.preventDefault();
+                abrirSubmenu(submenu);
+                submenu.panel.querySelector('a')?.focus();
+            } else if ((evento.key === 'Escape' || evento.key === 'ArrowLeft') && submenuAbierto === submenu) {
+                evento.preventDefault();
+                evento.stopPropagation();
+                cerrarSubmenu();
+                submenu.boton.focus();
+            }
+        });
+    });
+
+    document.addEventListener('pointerdown', (evento) => {
+        if (submenuAbierto && !submenuAbierto.grupo.contains(evento.target)) cerrarSubmenu();
+    });
+    document.addEventListener('pointermove', (evento) => {
+        if (evento.pointerType === 'touch' || pantallaPequena.matches || !submenuAbierto) return;
+        clearTimeout(cierrePendiente);
+        const submenu = submenuAbierto;
+        if (submenu.grupo.contains(evento.target)) return;
+        cierrePendiente = setTimeout(() => {
+            if (submenuAbierto === submenu && !submenu.grupo.contains(document.activeElement)) cerrarSubmenu();
+        }, 180);
+    });
+    menu.addEventListener('pointerenter', (evento) => {
+        if (evento.pointerType !== 'touch') previsualizarMenu();
+    });
+    menu.addEventListener('pointerleave', cerrarPrevisualizacion);
+    menu.addEventListener('focusin', previsualizarMenu);
+    menu.addEventListener('focusout', () => {
+        setTimeout(() => {
+            if (!menu.matches(':hover')) cerrarPrevisualizacion();
+        }, 0);
+    });
 
     try {
         reducido = localStorage.getItem(clavePreferencia) === '1';
@@ -20,6 +111,8 @@
     }
 
     function actualizarMenu() {
+        cerrarSubmenu();
+        cuerpo.classList.remove('menu-previsualizado');
         const movil = pantallaPequena.matches;
         cuerpo.classList.toggle('menu-reducido', !movil && reducido);
         cuerpo.classList.toggle('menu-abierto', movil && abierto);
@@ -61,6 +154,13 @@
     velo.addEventListener('click', cerrarMenu);
     document.addEventListener('keydown', (evento) => {
         if (dialogoSalida?.open) return;
+        if (evento.key === 'Escape' && submenuAbierto) {
+            evento.preventDefault();
+            const botonSubmenu = submenuAbierto.boton;
+            cerrarSubmenu();
+            botonSubmenu.focus();
+            return;
+        }
         if (!pantallaPequena.matches || !abierto) return;
         if (evento.key === 'Escape') {
             cerrarMenu();
@@ -68,7 +168,8 @@
         }
 
         if (evento.key === 'Tab') {
-            const elementos = menu.querySelectorAll('a, button');
+            const elementos = [...menu.querySelectorAll('a, button')]
+                .filter((elemento) => elemento.getClientRects().length > 0);
             const primero = elementos[0];
             const ultimo = elementos[elementos.length - 1];
             if (evento.shiftKey && document.activeElement === primero) {

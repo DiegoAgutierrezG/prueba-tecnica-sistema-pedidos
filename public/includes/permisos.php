@@ -9,7 +9,7 @@ const PERMISOS_POR_ROL = [
         'clientes.ver', 'clientes.editar', 'clientes.activar',
         'productos.ver', 'productos.administrar',
         'pedidos.ver', 'pedidos.crear', 'pedidos.despachar', 'pedidos.anular',
-        'pagos.registrar', 'reportes.ver',
+        'pagos.registrar', 'pagos.devolver', 'reportes.ver',
     ],
     'vendedor' => [
         'clientes.ver', 'clientes.editar',
@@ -28,7 +28,7 @@ const SECCIONES = [
     'productos' => ['nombre' => 'Productos', 'permiso' => 'productos.ver', 'descripcion' => 'Catálogo, precios y existencias.', 'ruta' => '/productos/index.php'],
     'pedidos' => ['nombre' => 'Pedidos', 'permiso' => 'pedidos.ver', 'descripcion' => 'Seguimiento de pedidos y sus estados.', 'ruta' => '/pedidos/index.php'],
     'pagos' => ['nombre' => 'Pagos', 'permiso' => 'pagos.registrar', 'descripcion' => 'Registro de abonos a pedidos.', 'ruta' => '/pagos/index.php'],
-    'reportes' => ['nombre' => 'Ventas del mes', 'permiso' => 'reportes.ver', 'descripcion' => 'Cantidad de pedidos y total vendido por mes.', 'ruta' => '/reportes/index.php'],
+    'reportes' => ['nombre' => 'Reportes', 'permiso' => 'reportes.ver', 'descripcion' => 'Ventas del mes, participación por vendedor y cartera.', 'ruta' => '/reportes/index.php'],
 ];
 
 const ACCIONES = [
@@ -39,7 +39,29 @@ const ACCIONES = [
     'pedidos.despachar' => 'Despachar y entregar pedidos',
     'pedidos.anular' => 'Anular pedidos',
     'pagos.registrar' => 'Registrar pagos',
-    'reportes.ver' => 'Consultar ventas del mes',
+    'pagos.devolver' => 'Registrar devoluciones',
+    'reportes.ver' => 'Consultar ventas y cartera',
+];
+
+const SUBOPCIONES_MENU = [
+    'clientes' => [
+        ['nombre' => 'Nuevo cliente', 'ruta' => '/clientes/formulario.php', 'permiso' => 'clientes.editar'],
+    ],
+    'productos' => [
+        ['nombre' => 'Nuevo producto', 'ruta' => '/productos/formulario.php', 'permiso' => 'productos.administrar'],
+        ['nombre' => 'Añadir stock', 'ruta' => '/productos/entrada.php', 'permiso' => 'productos.administrar'],
+    ],
+    'pedidos' => [
+        ['nombre' => 'Nuevo pedido', 'ruta' => '/pedidos/nuevo.php', 'permiso' => 'pedidos.crear'],
+    ],
+    'pagos' => [
+        ['nombre' => 'Devoluciones', 'ruta' => '/pagos/index.php?vista=devoluciones', 'permiso' => 'pagos.devolver'],
+        ['nombre' => 'Ver todos los pedidos', 'ruta' => '/pedidos/index.php', 'permiso' => 'pedidos.ver'],
+    ],
+    'reportes' => [
+        ['nombre' => 'Cartera por cliente', 'ruta' => '/reportes/cartera.php', 'permiso' => 'reportes.ver'],
+        ['nombre' => 'Productos bajo mínimo', 'ruta' => '/reportes/inventario.php', 'permiso' => 'reportes.ver'],
+    ],
 ];
 
 function tiene_permiso(array $usuario, string $permiso): bool
@@ -49,15 +71,21 @@ function tiene_permiso(array $usuario, string $permiso): bool
 
 function exigir_sesion(): array
 {
-    iniciar_sesion();
+    try {
+        iniciar_sesion();
 
-    if (isset($_SESSION['usuario_id']) && sesion_vencida($_SESSION, time())) {
-        cerrar_sesion_vencida();
-        header('Location: /login.php', true, 302);
-        exit;
+        if (isset($_SESSION['usuario_id']) && sesion_vencida($_SESSION, time())) {
+            cerrar_sesion_vencida();
+            header('Location: /login.php', true, 302);
+            exit;
+        }
+
+        $usuario = usuario_actual();
+    } catch (Throwable $error) {
+        error_log((string) $error);
+        require_once __DIR__ . '/vista.php';
+        mostrar_error(503, 'Servicio no disponible', 'No se pudo comprobar la sesión. Inténtalo de nuevo en unos minutos.');
     }
-
-    $usuario = usuario_actual();
 
     if ($usuario === null) {
         header('Location: /login.php', true, 302);
@@ -84,5 +112,13 @@ function secciones_visibles(array $usuario): array
     return array_filter(
         SECCIONES,
         static fn (array $seccion): bool => tiene_permiso($usuario, $seccion['permiso'])
+    );
+}
+
+function subopciones_visibles(array $usuario, string $seccion): array
+{
+    return array_filter(
+        SUBOPCIONES_MENU[$seccion] ?? [],
+        static fn (array $opcion): bool => tiene_permiso($usuario, $opcion['permiso'])
     );
 }
