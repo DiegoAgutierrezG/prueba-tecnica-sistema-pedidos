@@ -12,3 +12,6 @@ Thumbs.db
 
 # Pruebas locales fuera de la entrega
 tests/
+
+# Borrador anterior del documento de arquitectura
+docs/01_Arquitectura_y_tecnologias.docx
