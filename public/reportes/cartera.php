@@ -11,7 +11,7 @@ try {
     $clientes = consultar_cartera(conectar_bd());
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la cartera.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la cartera. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 mostrar_cabecera('Cartera por cliente', $usuario, false, 'reportes');

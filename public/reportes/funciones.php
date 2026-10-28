@@ -37,6 +37,32 @@ function mostrar_importe_ventas(string $importe): string
     return mostrar_decimal_cop($importe);
 }
 
+function agrupar_ventas_por_tramos(array $pedidos, string $mes): array
+{
+    $diasDelMes = (int) (new DateTimeImmutable($mes . '-01', new DateTimeZone('America/Bogota')))->format('t');
+    $tramos = [];
+    for ($inicio = 1; $inicio <= $diasDelMes; $inicio += 7) {
+        $tramos[] = [
+            'inicio' => $inicio,
+            'fin' => min($inicio + 6, $diasDelMes),
+            'cantidad' => 0,
+            'centavos' => 0,
+        ];
+    }
+
+    $zonaUtc = new DateTimeZone('UTC');
+    $zonaBogota = new DateTimeZone('America/Bogota');
+    foreach ($pedidos as $pedido) {
+        $dia = (int) (new DateTimeImmutable($pedido['creado_en'], $zonaUtc))
+            ->setTimezone($zonaBogota)->format('j');
+        $indice = intdiv($dia - 1, 7);
+        $tramos[$indice]['cantidad']++;
+        $tramos[$indice]['centavos'] += centavos_de_decimal($pedido['total']);
+    }
+
+    return $tramos;
+}
+
 function consultar_ventas_mes(PDO $conexion, string $mes): array
 {
     $limites = limites_mes_ventas($mes);
@@ -73,6 +99,7 @@ function consultar_ventas_mes(PDO $conexion, string $mes): array
         'total' => $pedidos === [] ? '0.00' : $pedidos[0]['total_mes'],
         'pedidos' => $pedidos,
         'vendedores' => $vendedores,
+        'tramos' => agrupar_ventas_por_tramos($pedidos, $mes),
         'inicio_utc' => $limites[0],
         'fin_utc' => $limites[1],
     ];

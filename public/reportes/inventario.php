@@ -11,7 +11,7 @@ try {
     $productos = consultar_productos_bajo_minimo(conectar_bd());
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el inventario.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el inventario. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 mostrar_cabecera('Productos bajo mínimo', $usuario, false, 'reportes');

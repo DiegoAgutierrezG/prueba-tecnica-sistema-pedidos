@@ -17,7 +17,7 @@ try {
     $reporte = consultar_ventas_mes(conectar_bd(), $mesRecibido);
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el reporte de ventas.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el reporte de ventas. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 mostrar_cabecera('Ventas del mes', $usuario, false, 'reportes');
@@ -54,11 +54,47 @@ mostrar_cabecera('Ventas del mes', $usuario, false, 'reportes');
     </div></div></div>
 </div>
 <p class="text-secondary small mb-3">Incluye el mes completo, desde el día 1 a las 00:00 hasta antes del día 1 del mes siguiente, en hora de Bogotá. Se toma la fecha de creación del pedido y su estado actual; los pagos no se suman de nuevo.</p>
+<section class="card border-0 shadow-sm mb-4" aria-labelledby="titulo-ventas-tramos">
+    <div class="card-body p-4">
+        <h3 id="titulo-ventas-tramos" class="h5 mb-2">Ventas durante el mes</h3>
+        <p class="text-secondary small mb-4">Cada columna reúne siete días consecutivos según la fecha de creación en Bogotá. La última puede tener menos días.</p>
+        <?php if ($reporte['cantidad'] === 0): ?>
+            <p class="text-secondary mb-0">Aún no hay ventas para representar en este mes.</p>
+        <?php else: ?>
+            <?php $maximoTramo = max(array_column($reporte['tramos'], 'centavos')); ?>
+            <ol class="grafico-ventas-tramos list-unstyled mb-0" aria-label="Ventas por tramo del mes">
+                <?php foreach ($reporte['tramos'] as $tramo): ?>
+                    <?php $altura = $maximoTramo > 0 && $tramo['centavos'] > 0
+                        ? max(4, 100 * $tramo['centavos'] / $maximoTramo) : 0; ?>
+                    <li class="columna-ventas-tramo">
+                        <strong class="importe-tramo"><?= escapar_html(mostrar_importe_ventas(decimal_de_centavos($tramo['centavos']))) ?></strong>
+                        <span class="zona-barra-tramo" aria-hidden="true">
+                            <span class="barra-tramo" style="height: <?= escapar_html(number_format($altura, 1, '.', '')) ?>%"></span>
+                        </span>
+                        <span class="etiqueta-tramo">Días <?= (int) $tramo['inicio'] ?>–<?= (int) $tramo['fin'] ?></span>
+                        <small class="text-secondary"><?= (int) $tramo['cantidad'] ?> pedido<?= $tramo['cantidad'] === 1 ? '' : 's' ?></small>
+                    </li>
+                <?php endforeach; ?>
+            </ol>
+        <?php endif; ?>
+    </div>
+</section>
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-4 pb-0"><h3 class="h5 mb-3">Ventas por vendedor</h3></div>
     <?php if ($reporte['vendedores'] === []): ?>
         <p class="px-4 pb-4 text-secondary mb-0">No hay ventas para distribuir en este mes.</p>
     <?php else: ?>
+        <?php $totalCentavos = centavos_de_decimal($reporte['total']); ?>
+        <div class="grafico-vendedores px-4 pb-4" aria-label="Participación en ventas por vendedor">
+            <?php foreach ($reporte['vendedores'] as $vendedor): ?>
+                <?php $participacion = $totalCentavos > 0 ? 100 * $vendedor['centavos'] / $totalCentavos : 0; ?>
+                <div class="fila-grafico-vendedor">
+                    <span class="nombre-grafico-vendedor"><?= escapar_html($vendedor['nombre']) ?></span>
+                    <span class="pista-grafico-vendedor" aria-hidden="true"><span style="width: <?= escapar_html(number_format($participacion, 1, '.', '')) ?>%"></span></span>
+                    <strong class="valor-grafico-vendedor"><?= escapar_html(number_format($participacion, 1, ',', '.')) ?> %</strong>
+                </div>
+            <?php endforeach; ?>
+        </div>
         <div class="table-responsive"><table class="table table-hover align-middle mb-0">
             <thead class="table-light"><tr>
                 <th scope="col" class="ps-4">Vendedor</th>
@@ -67,7 +103,6 @@ mostrar_cabecera('Ventas del mes', $usuario, false, 'reportes');
                 <th scope="col" class="pe-4">Participación</th>
             </tr></thead>
             <tbody>
-                <?php $totalCentavos = centavos_de_decimal($reporte['total']); ?>
                 <?php foreach ($reporte['vendedores'] as $vendedor): ?>
                     <tr>
                         <td class="ps-4"><?= escapar_html($vendedor['nombre']) ?></td>
