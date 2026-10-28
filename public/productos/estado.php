@@ -21,7 +21,7 @@ $accion = $_POST['accion'] ?? null;
 
 if (!is_string($idRecibido) || !ctype_digit($idRecibido) || (int) $idRecibido < 1
     || !in_array($accion, ['activar', 'desactivar'], true)) {
-    mostrar_error(400, 'Solicitud inválida', 'No se pudo identificar el producto o la acción.', $usuario);
+    mostrar_error(400, 'Solicitud inválida', 'No se pudo identificar el producto o la acción. Vuelve al catálogo y selecciona el cambio de nuevo.', $usuario);
 }
 
 $id = (int) $idRecibido;
@@ -44,14 +44,14 @@ try {
         $comprobar->execute(['id' => $id]);
 
         if ($comprobar->fetch() === false) {
-            mostrar_error(404, 'Producto no encontrado', 'El producto solicitado no existe.', $usuario);
+            mostrar_error(404, 'Producto no encontrado', 'El producto solicitado no existe. Actualiza el catálogo y selecciona otro producto.', $usuario);
         }
 
         mostrar_error(409, 'Estado ya modificado', 'El estado de este producto cambió. Actualiza la lista antes de intentarlo de nuevo.', $usuario);
     }
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo cambiar el estado del producto.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el cambio de estado del producto. Revisa la lista antes de intentarlo de nuevo.', $usuario);
 }
 
 $_SESSION['aviso_productos'] = $activoNuevo === 1

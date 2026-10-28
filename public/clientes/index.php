@@ -14,7 +14,7 @@ $mensajeBusqueda = '';
 $clientes = [];
 
 if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 150) {
-    $mensajeBusqueda = 'La búsqueda admite hasta 150 caracteres.';
+    $mensajeBusqueda = 'La búsqueda admite hasta 150 caracteres. Acórtala y vuelve a buscar.';
 } else {
     try {
         $sql = 'SELECT id, nit, razon_social, tipo, cupo_credito, ciudad, activo FROM clientes';
@@ -42,7 +42,7 @@ if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 15
         $clientes = $consulta->fetchAll();
     } catch (Throwable $error) {
         error_log((string) $error);
-        mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la lista de clientes.', $usuario);
+        mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la lista de clientes. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
     }
 }
 

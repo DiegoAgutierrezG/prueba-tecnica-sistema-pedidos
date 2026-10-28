@@ -131,7 +131,7 @@ function registrar_entradas_stock(PDO $conexion, int $usuarioId, mixed $ids, mix
             throw new ReglaInventario('Selecciona un producto y una cantidad entera mayor que cero en cada fila.', 422);
         }
         if (isset($entradas[$id])) {
-            throw new ReglaInventario('Cada producto debe aparecer una sola vez en la entrada.', 422);
+            throw new ReglaInventario('La entrada tiene un producto repetido. Deja una sola fila y suma allí la cantidad.', 422);
         }
         $entradas[$id] = (int) $cantidad;
     }
@@ -158,7 +158,7 @@ function registrar_entradas_stock(PDO $conexion, int $usuarioId, mixed $ids, mix
                 throw new ReglaInventario('Uno de los productos ya no está activo. Actualiza la lista.', 409);
             }
             if ((int) $producto['stock'] > 4294967295 - $cantidad) {
-                throw new ReglaInventario('La entrada supera el máximo de existencias de uno de los productos.', 422);
+                throw new ReglaInventario('La entrada supera el máximo de existencias de uno de los productos. Reduce la cantidad de esa fila.', 422);
             }
 
             $actualizar->execute(['cantidad' => $cantidad, 'id' => $id]);

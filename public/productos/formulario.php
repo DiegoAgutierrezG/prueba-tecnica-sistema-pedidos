@@ -10,7 +10,7 @@ $idRecibido = $_GET['id'] ?? null;
 $esEdicion = $idRecibido !== null;
 
 if ($esEdicion && (!is_string($idRecibido) || !ctype_digit($idRecibido) || (int) $idRecibido < 1)) {
-    mostrar_error(404, 'Producto no encontrado', 'El producto solicitado no existe.', $usuario);
+    mostrar_error(404, 'Producto no encontrado', 'El producto solicitado no existe. Selecciona otro desde el catálogo.', $usuario);
 }
 
 $id = $esEdicion ? (int) $idRecibido : null;
@@ -47,7 +47,7 @@ try {
         $productoActual = $consulta->fetch();
 
         if ($productoActual === false) {
-            mostrar_error(404, 'Producto no encontrado', 'El producto solicitado no existe.', $usuario);
+            mostrar_error(404, 'Producto no encontrado', 'El producto solicitado no existe. Selecciona otro desde el catálogo.', $usuario);
         }
 
         foreach (['sku', 'nombre', 'categoria_id', 'precio_lista', 'exento_iva', 'stock_minimo'] as $campo) {
@@ -56,7 +56,7 @@ try {
     }
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo cargar el formulario de productos.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo cargar el formulario de productos. Vuelve a la lista e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -121,19 +121,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conexion->rollBack();
             }
             if (($error->errorInfo[1] ?? null) === 1062) {
-                $errores['sku'] = 'Este SKU ya pertenece a otro producto.';
+                $errores['sku'] = 'Este SKU ya pertenece a otro producto. Escribe uno distinto o busca el producto existente.';
             } elseif (($error->errorInfo[1] ?? null) === 1452) {
-                $errores['categoria_id'] = 'La categoría seleccionada ya no está disponible.';
+                $errores['categoria_id'] = 'La categoría seleccionada ya no está disponible. Selecciona otra de la lista.';
             } else {
                 error_log((string) $error);
-                mostrar_error(503, 'Servicio no disponible', 'No se pudo guardar el producto.', $usuario);
+                mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el guardado del producto. Revisa el catálogo antes de intentarlo de nuevo.', $usuario);
             }
         } catch (Throwable $error) {
             if ($conexion->inTransaction()) {
                 $conexion->rollBack();
             }
             error_log((string) $error);
-            mostrar_error(503, 'Servicio no disponible', 'No se pudo guardar el producto.', $usuario);
+            mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el guardado del producto. Revisa el catálogo antes de intentarlo de nuevo.', $usuario);
         }
     }
 }

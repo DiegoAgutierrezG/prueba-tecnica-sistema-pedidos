@@ -10,7 +10,7 @@ $idRecibido = $_GET['id'] ?? null;
 $esEdicion = $idRecibido !== null;
 
 if ($esEdicion && (!is_string($idRecibido) || !ctype_digit($idRecibido) || (int) $idRecibido < 1)) {
-    mostrar_error(404, 'Cliente no encontrado', 'El cliente solicitado no existe.', $usuario);
+    mostrar_error(404, 'Cliente no encontrado', 'El cliente solicitado no existe. Selecciona otro desde la lista de clientes.', $usuario);
 }
 
 $id = $esEdicion ? (int) $idRecibido : null;
@@ -41,11 +41,11 @@ if ($esEdicion) {
         $clienteActual = $consulta->fetch();
     } catch (Throwable $error) {
         error_log((string) $error);
-        mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el cliente.', $usuario);
+        mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el cliente. Vuelve a la lista e inténtalo de nuevo en unos minutos.', $usuario);
     }
 
     if ($clienteActual === false) {
-        mostrar_error(404, 'Cliente no encontrado', 'El cliente solicitado no existe.', $usuario);
+        mostrar_error(404, 'Cliente no encontrado', 'El cliente solicitado no existe. Selecciona otro desde la lista de clientes.', $usuario);
     }
 
     [$datos['nit_numero'], $datos['nit_dv']] = array_pad(explode('-', $clienteActual['nit'], 2), 2, '');
@@ -92,10 +92,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         } catch (PDOException $error) {
             if (($error->errorInfo[1] ?? null) === 1062) {
-                $errores['nit'] = 'Este NIT ya pertenece a otro cliente.';
+                $errores['nit'] = 'Este NIT ya pertenece a otro cliente. Revisa el número o busca ese cliente en la lista.';
             } else {
                 error_log((string) $error);
-                mostrar_error(503, 'Servicio no disponible', 'No se pudo guardar el cliente.', $usuario);
+                mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el guardado del cliente. Revisa la lista antes de intentarlo de nuevo.', $usuario);
             }
         }
     }

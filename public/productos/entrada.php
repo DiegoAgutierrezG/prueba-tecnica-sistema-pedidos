@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorFormulario = $error->getMessage();
     } catch (Throwable $error) {
         error_log((string) $error);
-        mostrar_error(503, 'Servicio no disponible', 'No se pudo registrar la entrada de inventario.', $usuario);
+        mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar la entrada de inventario. Revisa el stock de los productos antes de intentarlo de nuevo.', $usuario);
     }
 
     try {
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($fila);
     } catch (Throwable $error) {
         error_log((string) $error);
-        mostrar_error(503, 'Servicio no disponible', 'No se pudieron recuperar los productos seleccionados.', $usuario);
+        mostrar_error(503, 'Servicio no disponible', 'No se pudieron recuperar los productos seleccionados. Vuelve a abrir la entrada de inventario e inténtalo de nuevo en unos minutos.', $usuario);
     }
 }
 

@@ -21,7 +21,7 @@ $accion = $_POST['accion'] ?? null;
 
 if (!is_string($idRecibido) || !ctype_digit($idRecibido) || (int) $idRecibido < 1
     || !in_array($accion, ['activar', 'desactivar'], true)) {
-    mostrar_error(400, 'Solicitud inválida', 'No se pudo identificar el cliente o la acción.', $usuario);
+    mostrar_error(400, 'Solicitud inválida', 'No se pudo identificar el cliente o la acción. Vuelve a la lista y selecciona el cambio de nuevo.', $usuario);
 }
 
 $id = (int) $idRecibido;
@@ -44,14 +44,14 @@ try {
         $comprobar->execute(['id' => $id]);
 
         if ($comprobar->fetch() === false) {
-            mostrar_error(404, 'Cliente no encontrado', 'El cliente solicitado no existe.', $usuario);
+            mostrar_error(404, 'Cliente no encontrado', 'El cliente solicitado no existe. Actualiza la lista y selecciona otro cliente.', $usuario);
         }
 
         mostrar_error(409, 'Estado ya modificado', 'El estado de este cliente cambió. Actualiza la lista antes de intentarlo de nuevo.', $usuario);
     }
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo cambiar el estado del cliente.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el cambio de estado del cliente. Revisa la lista antes de intentarlo de nuevo.', $usuario);
 }
 
 $_SESSION['aviso_clientes'] = $activoNuevo === 1

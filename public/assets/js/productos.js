@@ -1,4 +1,14 @@
 (() => {
+    const dialogoResultado = document.getElementById('dialogo-resultado-producto');
+    const avisoRespaldo = document.getElementById('aviso-producto-respaldo');
+    if (dialogoResultado && avisoRespaldo && typeof dialogoResultado.showModal === 'function') {
+        dialogoResultado.showModal();
+        avisoRespaldo.hidden = true;
+        const botonCerrar = dialogoResultado.querySelector('[data-cerrar-resultado-producto]');
+        botonCerrar.focus();
+        botonCerrar.addEventListener('click', () => dialogoResultado.close());
+    }
+
     const dialogo = document.getElementById('dialogo-estado-producto');
     const formularios = document.querySelectorAll('.formulario-estado-producto');
     if (!dialogo || typeof dialogo.showModal !== 'function' || formularios.length === 0) return;

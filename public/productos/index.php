@@ -11,7 +11,7 @@ $estadoRecibido = $_GET['estado'] ?? 'activos';
 $estado = $estadoRecibido === 'inactivos' ? 'inactivos' : 'activos';
 
 if ($estado === 'inactivos' && !$puedeAdministrar) {
-    mostrar_error(403, 'Acceso denegado', 'Tu usuario no puede consultar productos inactivos.', $usuario);
+    mostrar_error(403, 'Acceso denegado', 'Tu usuario no puede consultar productos inactivos. Vuelve al catálogo de activos o solicita acceso al administrador.', $usuario);
 }
 
 $busquedaRecibida = $_GET['busqueda'] ?? '';
@@ -39,7 +39,7 @@ try {
     $categorias = $consultaCategorias->fetchAll();
 
     if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 150) {
-        $mensajeFiltro = 'La búsqueda admite hasta 150 caracteres.';
+        $mensajeFiltro = 'La búsqueda admite hasta 150 caracteres. Acórtala y vuelve a buscar.';
     } elseif ($categoria !== '' && (!ctype_digit($categoria)
         || !in_array((int) $categoria, array_map('intval', array_column($categorias, 'id')), true))) {
         $mensajeFiltro = 'Selecciona una categoría disponible.';
@@ -91,7 +91,7 @@ try {
     }
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el catálogo de productos.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el catálogo de productos. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 $aviso = $_SESSION['aviso_productos'] ?? null;
@@ -120,7 +120,18 @@ mostrar_cabecera('Productos', $usuario, false, 'productos');
 </div>
 
 <?php if (is_string($aviso) && $aviso !== ''): ?>
-    <div class="alert alert-success" role="status"><?= escapar_html($aviso) ?></div>
+    <div id="aviso-producto-respaldo" class="alert alert-success" role="status"><?= escapar_html($aviso) ?></div>
+    <dialog id="dialogo-resultado-producto" class="dialogo-confirmacion"
+        aria-labelledby="titulo-resultado-producto" aria-describedby="descripcion-resultado-producto">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="m16 24 6 6 11-12"/></svg>
+        </span>
+        <h2 id="titulo-resultado-producto">Operación completada</h2>
+        <p id="descripcion-resultado-producto"><?= escapar_html($aviso) ?></p>
+        <div class="acciones-confirmacion">
+            <button type="button" class="btn btn-primary" data-cerrar-resultado-producto>Entendido</button>
+        </div>
+    </dialog>
 <?php endif; ?>
 <?php if ($mensajeFiltro !== ''): ?>
     <div class="alert alert-danger" role="alert"><?= escapar_html($mensajeFiltro) ?></div>
@@ -262,6 +273,6 @@ mostrar_cabecera('Productos', $usuario, false, 'productos');
             <button type="button" class="btn btn-primary" data-confirmar-estado>Confirmar</button>
         </div>
     </dialog>
-    <script src="/assets/js/productos.js?v=1" defer></script>
+    <script src="/assets/js/productos.js?v=2" defer></script>
 <?php endif; ?>
 <?php mostrar_pie(true); ?>
