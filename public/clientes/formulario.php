@@ -120,7 +120,9 @@ mostrar_cabecera($titulo, $usuario, false, 'clientes');
                 <p class="text-secondary mb-4">Completa los datos comerciales del cliente.</p>
 
                 <?php if ($errores !== []): ?>
-                    <div class="alert alert-danger" role="alert">Revisa los campos señalados antes de guardar.</div>
+                    <div class="alert alert-danger" role="alert" data-error-cliente-respaldo>
+                        Revisa los campos señalados antes de guardar.
+                    </div>
                 <?php endif; ?>
 
                 <form action="/clientes/formulario.php<?= $esEdicion ? '?id=' . $id : '' ?>" method="post">
@@ -178,4 +180,25 @@ mostrar_cabecera($titulo, $usuario, false, 'clientes');
         </div>
     </div>
 </div>
+<?php if ($errores !== []): ?>
+<dialog id="dialogo-error-cliente" class="dialogo-confirmacion aviso-error dialogo-error-cliente"
+    aria-labelledby="titulo-error-cliente" aria-describedby="descripcion-error-cliente">
+    <span class="icono-confirmacion" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5a19 19 0 1 0 0 38 19 19 0 0 0 0-38Zm0 11v12m0 5v1"/></svg>
+    </span>
+    <h2 id="titulo-error-cliente">Revisa los datos del cliente</h2>
+    <div id="descripcion-error-cliente" class="text-start mb-4">
+        <p class="mb-2">Corrige estos datos para guardar:</p>
+        <ul class="mb-0 ps-3">
+            <?php foreach ($errores as $mensaje): ?>
+                <li class="mb-2"><?= escapar_html($mensaje) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+    <form method="dialog" class="acciones-confirmacion">
+        <button type="submit" class="btn btn-primary" autofocus>Entendido</button>
+    </form>
+</dialog>
+<?php endif; ?>
+<script src="/assets/js/clientes.js?v=2" defer></script>
 <?php mostrar_pie(true); ?>

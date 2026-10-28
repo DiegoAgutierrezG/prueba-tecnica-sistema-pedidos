@@ -43,14 +43,14 @@ function mostrar_cabecera(string $titulo, ?array $usuario = null, bool $esIngres
         <link rel="stylesheet" href="/assets/css/acceso.css?v=11">
         <script src="/assets/js/acceso.js?v=4" defer></script>
     <?php elseif ($usuario !== null): ?>
-        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=24">
+        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=25">
         <script src="/assets/js/navegacion.js?v=6" defer></script>
         <script src="/assets/js/errores.js?v=1" defer></script>
         <?php if ($seccionActiva === 'usuarios'): ?>
             <script src="/assets/js/usuarios.js?v=1" defer></script>
         <?php endif; ?>
     <?php else: ?>
-        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=24">
+        <link rel="stylesheet" href="/assets/css/aplicacion.css?v=25">
         <script src="/assets/js/errores.js?v=1" defer></script>
     <?php endif; ?>
 </head>

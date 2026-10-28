@@ -239,6 +239,9 @@ body.pagina-aplicacion {
 .acciones-confirmacion .btn { flex: 1; min-height: 46px; font-weight: 650; }
 .dialogo-confirmacion.es-desactivacion .icono-confirmacion { color: #b42332; background: #ffedf0; }
 .dialogo-confirmacion.aviso-error .icono-confirmacion { color: #a94b20; background: #fff1e8; }
+.dialogo-confirmacion.dialogo-error-cliente { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.dialogo-error-cliente p { margin-bottom: 12px; }
+.dialogo-error-cliente li { overflow-wrap: anywhere; }
 .dialogo-confirmacion.aviso-stock { width: min(620px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
 .dialogo-confirmacion.dialogo-usuario { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
 .resumen-confirmacion-usuario { margin: 0 0 24px; padding: 2px 16px; border: 1px solid #dce9e0; border-radius: 12px; text-align: left; }

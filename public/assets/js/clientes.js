@@ -57,3 +57,14 @@
         botonConfirmar.disabled = false;
     });
 })();
+
+(() => {
+    const dialogo = document.getElementById('dialogo-error-cliente');
+    if (!dialogo || typeof dialogo.showModal !== 'function') return;
+
+    dialogo.addEventListener('close', () => {
+        document.querySelector('#contenido-principal .is-invalid')?.focus();
+    });
+    dialogo.showModal();
+    document.querySelector('[data-error-cliente-respaldo]')?.setAttribute('hidden', '');
+})();

@@ -53,10 +53,13 @@ function validar_datos_cliente(array $entrada): array
     ];
     $errores = [];
 
-    if (!preg_match('/^[1-9][0-9]{0,14}$/D', $datos['nit_numero'])
-        || !preg_match('/^[0-9]$/D', $datos['nit_dv'])
-        || digito_verificacion_nit($datos['nit_numero']) !== (int) $datos['nit_dv']) {
-        $errores['nit'] = 'Revisa el número del NIT y su dígito de verificación.';
+    if (!preg_match('/^[1-9][0-9]{0,14}$/D', $datos['nit_numero'])) {
+        $errores['nit'] = 'Escribe el NIT sin puntos ni guion, con 1 a 15 dígitos y sin cero inicial.';
+    } elseif (!preg_match('/^[0-9]$/D', $datos['nit_dv'])) {
+        $errores['nit'] = 'El DV debe ser un solo dígito entre 0 y 9.';
+    } elseif (($dvCalculado = digito_verificacion_nit($datos['nit_numero'])) !== (int) $datos['nit_dv']) {
+        $errores['nit'] = 'El DV para el NIT ' . $datos['nit_numero'] . ' es ' . $dvCalculado
+            . '. Corrige el DV o revisa el número del NIT.';
     } else {
         $datos['nit'] = $datos['nit_numero'] . '-' . $datos['nit_dv'];
     }

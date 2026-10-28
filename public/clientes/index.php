@@ -161,6 +161,6 @@ mostrar_cabecera('Clientes', $usuario, false, 'clientes');
             <button type="button" class="btn btn-primary" data-confirmar-estado>Confirmar</button>
         </div>
     </dialog>
-    <script src="/assets/js/clientes.js?v=1" defer></script>
+    <script src="/assets/js/clientes.js?v=2" defer></script>
 <?php endif; ?>
 <?php mostrar_pie(true); ?>
