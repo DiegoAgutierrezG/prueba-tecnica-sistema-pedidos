@@ -63,6 +63,7 @@ try {
             'id' => (string) $producto['id'],
             'nombre' => $producto['sku'] . ' · ' . $producto['nombre'],
             'detalle' => mostrar_decimal_pedido($producto['precio_lista']) . ' · stock ' . $producto['stock'],
+            'stock' => (int) $producto['stock'],
         ], $consulta->fetchAll());
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/vista.php';
 require_once __DIR__ . '/funciones.php';
+require_once __DIR__ . '/../pagos/funciones.php';
 
 $usuario = exigir_permiso('pedidos.ver');
 $id = id_pedido_valido($_GET['id'] ?? null);
@@ -28,6 +29,8 @@ try {
     $consulta = $conexion->prepare('SELECT COALESCE(SUM(valor), 0.00) FROM pagos WHERE pedido_id = :id');
     $consulta->execute(['id' => $id]);
     $pagado = centavos_de_decimal((string) $consulta->fetchColumn());
+    $devolucion = devolucion_pedido($conexion, $id);
+    $devuelto = $devolucion === null ? 0 : centavos_de_decimal($devolucion['valor']);
     $total = centavos_de_decimal($pedido['total']);
 } catch (Throwable $error) {
     error_log((string) $error);
@@ -61,17 +64,47 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
         if ($pedido['estado'] === 'borrador' && tiene_permiso($usuario, 'pedidos.crear')) $acciones['confirmar'] = 'Confirmar pedido';
         if ($pedido['estado'] === 'confirmado' && tiene_permiso($usuario, 'pedidos.despachar')) $acciones['despachar'] = 'Despachar';
         if ($pedido['estado'] === 'despachado' && tiene_permiso($usuario, 'pedidos.despachar')) $acciones['entregar'] = 'Marcar entregado';
-        if (in_array($pedido['estado'], ['borrador', 'confirmado'], true) && tiene_permiso($usuario, 'pedidos.anular')) $acciones['anular'] = 'Anular pedido';
+        if (in_array($pedido['estado'], ['borrador', 'confirmado'], true)
+            && tiene_permiso($usuario, 'pedidos.anular')) {
+            $acciones['anular'] = 'Anular pedido';
+        }
+        $mensajeAnulacion = $pagado > 0
+            ? '¿Confirmas la anulación? El dinero recibido quedará pendiente de devolución y el stock regresará al inventario.'
+            : '¿Confirmas que deseas anular este pedido?';
         ?>
         <?php foreach ($acciones as $accion => $etiqueta): ?>
             <form action="/pedidos/accion.php" method="post" class="m-0">
                 <input type="hidden" name="token_csrf" value="<?= escapar_html(token_csrf()) ?>">
                 <input type="hidden" name="id" value="<?= $id ?>">
-                <button type="submit" name="accion" value="<?= escapar_html($accion) ?>" class="btn btn-<?= $accion === 'anular' ? 'outline-danger' : 'primary' ?>" <?= $accion === 'anular' ? 'onclick="return confirm(\'¿Confirmas que deseas anular este pedido?\')"' : '' ?>><?= escapar_html($etiqueta) ?></button>
+                <button type="submit" name="accion" value="<?= escapar_html($accion) ?>" class="btn btn-<?= $accion === 'anular' ? 'outline-danger' : 'primary' ?>" <?= $accion === 'anular' ? 'onclick="return confirm(\'' . escapar_html($mensajeAnulacion) . '\')"' : '' ?>><?= escapar_html($etiqueta) ?></button>
             </form>
         <?php endforeach; ?>
     </div>
 </div>
+<?php if ($pedido['estado'] === 'confirmado' && $pagado > 0): ?>
+    <div class="alert alert-warning" role="status">
+        Este pedido tiene pagos registrados. Si lo anulas, el stock se restituye y <?= escapar_html(mostrar_monto_pago($pagado)) ?> quedará pendiente de devolver al cliente.
+    </div>
+<?php endif; ?>
+<?php if ($pedido['estado'] === 'anulado' && $pagado > 0): ?>
+    <?php if ($devuelto === 0): ?>
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2" role="status">
+            <span>Devolución pendiente: <strong><?= escapar_html(mostrar_monto_pago($pagado)) ?></strong>. Anular el pedido no devolvió el dinero automáticamente.</span>
+            <?php if (tiene_permiso($usuario, 'pagos.devolver')): ?>
+                <a href="/pagos/devolucion.php?id=<?= $id ?>" class="btn btn-outline-dark btn-sm">Registrar devolución realizada</a>
+            <?php endif; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert-success" role="status">
+            Devolución registrada: <strong><?= escapar_html(mostrar_monto_pago($devuelto)) ?></strong>,
+            <?= escapar_html(METODOS_PAGO[$devolucion['metodo']] ?? $devolucion['metodo']) ?>,
+            <?= escapar_html(fecha_pedido_bogota($devolucion['fecha'])) ?> (Bogotá).
+            <?php if (tiene_permiso($usuario, 'pagos.devolver')): ?>
+                <a href="/pagos/devolucion.php?id=<?= $id ?>" class="alert-link">Ver constancia</a>.
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
 
 <div class="row g-3 mb-4">
     <div class="col-md-7">
@@ -113,7 +146,48 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
             </tbody>
         </table>
     </div>
+    <div class="card-footer bg-white border-0 px-4 py-3 text-end">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="abrir-calculo" aria-haspopup="dialog" aria-controls="dialogo-calculo">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" class="me-1"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>
+            Ver cálculo por producto
+        </button>
+    </div>
 </div>
+<dialog id="dialogo-calculo" class="dialogo-calculo" aria-labelledby="titulo-calculo">
+    <div class="encabezado-calculo">
+        <h2 id="titulo-calculo" class="h5 mb-0">Cálculo del pedido</h2>
+        <form method="dialog" class="m-0"><button type="submit" class="btn btn-outline-primary btn-sm">Cerrar</button></form>
+    </div>
+    <div class="contenido-calculo">
+        <?php foreach ($lineas as $linea): ?>
+            <section class="producto-calculo">
+                <h3 class="h6 mb-3"><?= escapar_html($linea['sku'] . ' · ' . $linea['nombre']) ?></h3>
+                <dl class="filas-calculo">
+                    <div><dt>Precio unitario:</dt><dd><?= escapar_html(mostrar_decimal_pedido($linea['precio_unitario'])) ?></dd></div>
+                    <div><dt>Cantidad:</dt><dd><?= (int) $linea['cantidad'] ?></dd></div>
+                    <div><dt>Subtotal:</dt><dd><?= escapar_html(mostrar_centavos_pedido($linea['subtotal'])) ?></dd></div>
+                    <div><dt>Descuento:</dt><dd><?= (int) $linea['descuento_porcentaje'] ?> %</dd></div>
+                    <div><dt>Valor del descuento:</dt><dd><?= escapar_html(mostrar_centavos_pedido($linea['descuento'])) ?></dd></div>
+                    <div><dt>Base después del descuento:</dt><dd><?= escapar_html(mostrar_centavos_pedido($linea['subtotal'] - $linea['descuento'])) ?></dd></div>
+                    <div><dt>IVA:</dt><dd><?= (int) $linea['iva_porcentaje'] ?> %</dd></div>
+                    <div><dt>Valor del IVA:</dt><dd><?= escapar_html(mostrar_centavos_pedido($linea['iva'])) ?></dd></div>
+                    <div class="total-calculo"><dt>Total línea:</dt><dd><?= escapar_html(mostrar_centavos_pedido($linea['total_linea'])) ?></dd></div>
+                </dl>
+            </section>
+        <?php endforeach; ?>
+        <section class="producto-calculo">
+            <h3 class="h6 mb-3">Total del pedido</h3>
+            <dl class="filas-calculo">
+                <div><dt>Subtotal:</dt><dd><?= escapar_html(mostrar_centavos_pedido($totales['subtotal'])) ?></dd></div>
+                <div><dt>Descuento:</dt><dd><?= escapar_html(mostrar_centavos_pedido($totales['descuento'])) ?></dd></div>
+                <div><dt>IVA:</dt><dd><?= escapar_html(mostrar_centavos_pedido($totales['iva'])) ?></dd></div>
+                <div><dt>Antes del ajuste:</dt><dd><?= escapar_html(mostrar_centavos_pedido($totales['total'] - $totales['ajuste'])) ?></dd></div>
+                <div><dt>Ajuste a múltiplo de $ 50:</dt><dd><?= escapar_html(mostrar_centavos_pedido($totales['ajuste'])) ?></dd></div>
+                <div class="total-calculo"><dt>Total:</dt><dd><?= escapar_html(mostrar_centavos_pedido($totales['total'])) ?></dd></div>
+            </dl>
+        </section>
+    </div>
+</dialog>
 <div class="row justify-content-end">
     <div class="col-md-6 col-xl-5">
         <div class="card border-0 shadow-sm"><div class="card-body p-4">
@@ -125,8 +199,12 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
             <hr>
             <div class="d-flex justify-content-between fs-5"><span>Total</span><strong><?= escapar_html(mostrar_decimal_pedido($pedido['total'])) ?></strong></div>
             <div class="d-flex justify-content-between mt-3"><span>Pagos registrados</span><strong><?= escapar_html(mostrar_centavos_pedido($pagado)) ?></strong></div>
-            <div class="d-flex justify-content-between"><span>Saldo</span><strong><?= escapar_html(mostrar_centavos_pedido(max(0, $total - $pagado))) ?></strong></div>
+            <div class="d-flex justify-content-between"><span>Saldo por cobrar</span><strong><?= escapar_html(mostrar_centavos_pedido($pedido['estado'] === 'anulado' ? 0 : max(0, $total - $pagado))) ?></strong></div>
+            <?php if ($pedido['estado'] === 'anulado' && $pagado > 0): ?>
+                <div class="d-flex justify-content-between"><span>Pendiente de devolución</span><strong><?= escapar_html(mostrar_monto_pago(max(0, $pagado - $devuelto))) ?></strong></div>
+            <?php endif; ?>
         </div></div>
     </div>
 </div>
+<script src="/assets/js/detalle-pedido.js?v=1" defer></script>
 <?php mostrar_pie(true); ?>

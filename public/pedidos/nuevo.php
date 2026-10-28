@@ -14,7 +14,7 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'], true)) {
 $errorFormulario = '';
 $clienteElegido = '';
 $ordenCompra = '';
-$filas = [['producto_id' => '', 'cantidad' => '', 'nombre' => '']];
+$filas = [['producto_id' => '', 'cantidad' => '', 'nombre' => '', 'stock' => '']];
 $nombreCliente = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -34,9 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'producto_id' => is_string($id) ? $id : '',
                 'cantidad' => is_string($cantidades[$posicion] ?? null) ? $cantidades[$posicion] : '',
                 'nombre' => '',
+                'stock' => '',
             ];
         }
-        if ($filas === []) $filas[] = ['producto_id' => '', 'cantidad' => '', 'nombre' => ''];
+        if ($filas === []) $filas[] = ['producto_id' => '', 'cantidad' => '', 'nombre' => '', 'stock' => ''];
     }
 
     try {
@@ -63,13 +64,14 @@ try {
             $clienteElegido = '';
         }
     }
-    $consultaProducto = $conexion->prepare('SELECT sku, nombre FROM productos WHERE id = :id AND activo = 1');
+    $consultaProducto = $conexion->prepare('SELECT sku, nombre, stock FROM productos WHERE id = :id AND activo = 1');
     foreach ($filas as &$fila) {
         if ($fila['producto_id'] === '') continue;
         $consultaProducto->execute(['id' => id_pedido_valido($fila['producto_id']) ?? 0]);
         $producto = $consultaProducto->fetch();
         if ($producto !== false) {
             $fila['nombre'] = $producto['sku'] . ' · ' . $producto['nombre'];
+            $fila['stock'] = (string) $producto['stock'];
         } else {
             $fila['producto_id'] = '';
         }
@@ -120,9 +122,11 @@ mostrar_cabecera('Nuevo pedido', $usuario, false, 'pedidos');
                     <p class="text-secondary small">Cada producto puede aparecer una vez. El precio y los descuentos se fijan al guardar el borrador.</p>
                     <div id="lineas-pedido">
                         <?php foreach ($filas as $posicion => $fila): ?>
-                            <div class="row g-2 align-items-end mb-2 linea-pedido">
+                            <div class="row g-2 align-items-end mb-2 linea-pedido" data-stock-actual="<?= escapar_html($fila['stock']) ?>">
                                 <div class="col-sm-8 campo-busqueda" data-buscador="producto">
-                                    <label class="form-label" for="producto-<?= $posicion ?>">Producto activo</label>
+                                    <label class="form-label d-flex justify-content-between gap-2" for="producto-<?= $posicion ?>">Producto activo
+                                        <span class="text-secondary small" data-stock-producto<?= $fila['stock'] === '' ? ' hidden' : '' ?>><?= $fila['stock'] === '' ? '' : 'Stock: ' . escapar_html($fila['stock']) ?></span>
+                                    </label>
                                     <input id="producto-<?= $posicion ?>" type="search" class="form-control" data-entrada-busqueda
                                         value="<?= escapar_html($fila['nombre']) ?>" placeholder="Escribe SKU o nombre"
                                         autocomplete="off" maxlength="100" role="combobox" aria-autocomplete="list"
@@ -145,9 +149,9 @@ mostrar_cabecera('Nuevo pedido', $usuario, false, 'pedidos');
                     </div>
                 </form>
                 <template id="plantilla-linea">
-                    <div class="row g-2 align-items-end mb-2 linea-pedido">
+                    <div class="row g-2 align-items-end mb-2 linea-pedido" data-stock-actual="">
                         <div class="col-sm-8 campo-busqueda" data-buscador="producto">
-                            <label class="form-label" data-etiqueta-producto>Producto activo</label>
+                            <label class="form-label d-flex justify-content-between gap-2" data-etiqueta-producto>Producto activo <span class="text-secondary small" data-stock-producto hidden></span></label>
                             <input type="search" class="form-control" data-entrada-busqueda placeholder="Escribe SKU o nombre"
                                 autocomplete="off" maxlength="100" role="combobox" aria-autocomplete="list" aria-expanded="false">
                             <input type="hidden" name="producto_id[]" data-id-seleccionado>
@@ -161,5 +165,18 @@ mostrar_cabecera('Nuevo pedido', $usuario, false, 'pedidos');
         </div>
     </div>
 </div>
-<script src="/assets/js/pedidos.js?v=2" defer></script>
+<dialog id="dialogo-stock-pedido" class="dialogo-confirmacion aviso-stock" aria-labelledby="titulo-stock-pedido" aria-describedby="descripcion-stock-pedido">
+    <span class="icono-confirmacion" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a3.5 3.5 0 0 1 6 0l16 28a3.5 3.5 0 0 1-3 5H8a3.5 3.5 0 0 1-3-5zM24 18v11m0 5v1"/></svg>
+    </span>
+    <h2 id="titulo-stock-pedido">Stock insuficiente</h2>
+    <p id="descripcion-stock-pedido">La cantidad solicitada supera las existencias consultadas.</p>
+    <div id="resumen-stock-pedido" class="resumen-alerta-stock"></div>
+    <p class="small">Puedes guardar un borrador, pero necesitarás stock suficiente para confirmarlo.</p>
+    <div class="acciones-confirmacion">
+        <button type="button" class="btn btn-outline-secondary" data-revisar-stock autofocus>Revisar cantidades</button>
+        <button type="button" class="btn btn-primary" data-guardar-sin-stock hidden>Guardar solo borrador</button>
+    </div>
+</dialog>
+<script src="/assets/js/pedidos.js?v=3" defer></script>
 <?php mostrar_pie(true); ?>

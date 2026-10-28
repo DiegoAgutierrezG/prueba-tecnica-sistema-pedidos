@@ -242,11 +242,6 @@ function cambiar_estado_pedido(PDO $conexion, int $pedidoId, int $usuarioId, str
                 }
             }
         } elseif ($accion === 'anular' && $estadoAnterior === 'confirmado') {
-            $consulta = $conexion->prepare('SELECT COUNT(*) FROM pagos WHERE pedido_id = :id');
-            $consulta->execute(['id' => $pedidoId]);
-            if ((int) $consulta->fetchColumn() > 0) {
-                throw new ReglaPedido('Este pedido tiene pagos. Debe resolverse la devolución antes de anularlo.', 409);
-            }
             $lineas = detalle_lineas_pedido($conexion, $pedidoId);
             $ids = array_column($lineas, 'producto_id');
             sort($ids, SORT_NUMERIC);
@@ -283,7 +278,10 @@ function cambiar_estado_pedido(PDO $conexion, int $pedidoId, int $usuarioId, str
             }
         }
 
-        $actualizar = $conexion->prepare('UPDATE pedidos SET estado = :estado WHERE id = :id AND estado = :anterior');
+        $sqlEstado = $accion === 'anular'
+            ? 'UPDATE pedidos SET estado = :estado, anulado_en = UTC_TIMESTAMP(6) WHERE id = :id AND estado = :anterior'
+            : 'UPDATE pedidos SET estado = :estado WHERE id = :id AND estado = :anterior';
+        $actualizar = $conexion->prepare($sqlEstado);
         $actualizar->execute(['estado' => $transiciones[$accion]['hasta'], 'id' => $pedidoId, 'anterior' => $estadoAnterior]);
         if ($actualizar->rowCount() !== 1) throw new ReglaPedido('El estado del pedido cambió. Actualiza la página.', 409);
         $conexion->commit();

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/moneda.php';
+
 const MAX_CENTAVOS_PEDIDO = 99999999999999;
 const MAX_CANTIDAD_PEDIDO = 4294967295;
 
@@ -25,8 +27,7 @@ function decimal_de_centavos(int $centavos): string
 
 function mostrar_centavos_pedido(int $centavos): string
 {
-    $pesos = intdiv($centavos + 50, 100);
-    return '$ ' . number_format($pesos, 0, ',', '.');
+    return mostrar_centavos_cop($centavos);
 }
 
 function mostrar_decimal_pedido(string $monto): string

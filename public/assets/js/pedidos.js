@@ -7,6 +7,88 @@
 
     let siguienteFila = contenedor.querySelectorAll('.linea-pedido').length;
     const buscadores = new Set();
+    const dialogoStock = document.getElementById('dialogo-stock-pedido');
+    const resumenStock = document.getElementById('resumen-stock-pedido');
+    const botonRevisar = dialogoStock?.querySelector('[data-revisar-stock]');
+    const botonGuardarSinStock = dialogoStock?.querySelector('[data-guardar-sin-stock]');
+    const admiteAviso = dialogoStock && typeof dialogoStock.showModal === 'function'
+        && resumenStock && botonRevisar && botonGuardarSinStock;
+    const avisosMostrados = new WeakMap();
+    let cantidadARevisar = null;
+    let guardarConFaltantes = false;
+
+    function actualizarStock(fila, stock = null) {
+        const disponible = Number.isInteger(stock) && stock >= 0;
+        fila.dataset.stockActual = disponible ? String(stock) : '';
+        const etiqueta = fila.querySelector('[data-stock-producto]');
+        etiqueta.textContent = disponible ? `Stock: ${stock.toLocaleString('es-CO')}` : '';
+        etiqueta.hidden = !disponible;
+        avisosMostrados.delete(fila);
+    }
+
+    function faltanteDeFila(fila) {
+        const id = fila.querySelector('[data-id-seleccionado]').value;
+        const cantidad = fila.querySelector('[name="cantidad[]"]');
+        if (!id || fila.dataset.stockActual === '' || !/^[1-9][0-9]{0,9}$/.test(cantidad.value)) return null;
+        const disponible = Number(fila.dataset.stockActual);
+        const solicitado = Number(cantidad.value);
+        if (!Number.isInteger(disponible) || solicitado <= disponible) return null;
+        return {
+            id, disponible, solicitado, cantidad,
+            nombre: fila.querySelector('[data-entrada-busqueda]').value,
+        };
+    }
+
+    function mostrarAvisoStock(faltantes, alGuardar = false) {
+        if (!admiteAviso || dialogoStock.open) return;
+        resumenStock.replaceChildren();
+        faltantes.forEach((producto) => {
+            const linea = document.createElement('div');
+            linea.className = 'linea-alerta-stock';
+            const nombre = document.createElement('strong');
+            nombre.textContent = producto.nombre;
+            const datos = document.createElement('span');
+            datos.textContent = `Disponible: ${producto.disponible.toLocaleString('es-CO')} · Solicitado: ${producto.solicitado.toLocaleString('es-CO')} · Faltan: ${(producto.solicitado - producto.disponible).toLocaleString('es-CO')}`;
+            linea.append(nombre, datos);
+            resumenStock.append(linea);
+        });
+        cantidadARevisar = faltantes[0].cantidad;
+        botonGuardarSinStock.hidden = !alGuardar;
+        botonGuardarSinStock.disabled = false;
+        dialogoStock.showModal();
+        botonRevisar.focus();
+    }
+
+    function avisarCantidad(fila) {
+        if (!admiteAviso || dialogoStock.open) return;
+        const faltante = faltanteDeFila(fila);
+        if (!faltante) {
+            avisosMostrados.delete(fila);
+            return;
+        }
+        const clave = `${faltante.id}:${faltante.disponible}:${faltante.solicitado}`;
+        if (avisosMostrados.get(fila) === clave) return;
+        avisosMostrados.set(fila, clave);
+        mostrarAvisoStock([faltante]);
+    }
+
+    if (admiteAviso) {
+        botonRevisar.addEventListener('click', () => dialogoStock.close());
+        botonGuardarSinStock.addEventListener('click', () => {
+            botonGuardarSinStock.disabled = true;
+            cantidadARevisar = null;
+            guardarConFaltantes = true;
+            dialogoStock.close();
+            formulario.requestSubmit(formulario.querySelector('button[type="submit"]'));
+            guardarConFaltantes = false;
+        });
+        dialogoStock.addEventListener('close', () => {
+            if (cantidadARevisar?.isConnected) {
+                cantidadARevisar.focus();
+                cantidadARevisar.select();
+            }
+        });
+    }
 
     function prepararBuscador(campo) {
         const entrada = campo.querySelector('[data-entrada-busqueda]');
@@ -50,6 +132,11 @@
             idSeleccionado.value = resultado.id;
             cerrar();
             entrada.focus();
+            if (tipo === 'producto') {
+                const fila = campo.closest('.linea-pedido');
+                actualizarStock(fila, resultado.stock);
+                avisarCantidad(fila);
+            }
         }
 
         function mostrar(resultados) {
@@ -120,6 +207,7 @@
         entrada.addEventListener('input', () => {
             idSeleccionado.value = '';
             entrada.setCustomValidity('');
+            if (tipo === 'producto') actualizarStock(campo.closest('.linea-pedido'));
             programarBusqueda();
         });
         entrada.addEventListener('focus', programarBusqueda);
@@ -193,11 +281,18 @@
             buscador.entrada.setCustomValidity('');
             buscador.idSeleccionado.value = '';
             fila.querySelector('[name="cantidad[]"]').value = '';
+            actualizarStock(fila);
         } else {
             buscador.cancelar();
             buscadores.delete(buscador);
             fila.remove();
         }
+    });
+
+    contenedor.addEventListener('focusout', (evento) => {
+        if (!evento.target.matches('[name="cantidad[]"]')) return;
+        if (evento.relatedTarget?.closest('button[type="submit"], [data-quitar-linea], [data-entrada-busqueda], a')) return;
+        avisarCantidad(evento.target.closest('.linea-pedido'));
     });
 
     formulario.addEventListener('submit', (evento) => {
@@ -219,6 +314,14 @@
                 entrada.setCustomValidity('Elige un producto de los resultados.');
                 entrada.reportValidity();
                 return;
+            }
+        }
+        if (admiteAviso && !guardarConFaltantes) {
+            const faltantes = [...contenedor.querySelectorAll('.linea-pedido')]
+                .map(faltanteDeFila).filter(Boolean);
+            if (faltantes.length > 0) {
+                evento.preventDefault();
+                mostrarAvisoStock(faltantes, true);
             }
         }
     });

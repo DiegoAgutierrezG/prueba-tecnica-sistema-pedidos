@@ -9,16 +9,31 @@ $usuario = exigir_permiso('pedidos.ver');
 $estados = ['borrador', 'confirmado', 'despachado', 'entregado', 'anulado'];
 $estadoRecibido = $_GET['estado'] ?? '';
 $estado = is_string($estadoRecibido) && in_array($estadoRecibido, $estados, true) ? $estadoRecibido : '';
+$busquedaRecibida = $_GET['busqueda'] ?? '';
+$busqueda = is_string($busquedaRecibida) ? trim($busquedaRecibida) : '';
+if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 40) {
+    mostrar_error(400, 'Búsqueda no válida', 'Escribe hasta 40 caracteres.', $usuario);
+}
 
 try {
     $conexion = conectar_bd();
-    $sql = 'SELECT p.id, p.consecutivo, p.estado, p.total, p.creado_en,
+    $sql = 'SELECT p.id, p.consecutivo, p.orden_compra, p.estado, p.total, p.creado_en,
                    c.razon_social AS cliente
             FROM pedidos AS p INNER JOIN clientes AS c ON c.id = p.cliente_id';
     $parametros = [];
+    $condiciones = [];
     if ($estado !== '') {
-        $sql .= ' WHERE p.estado = :estado';
+        $condiciones[] = 'p.estado = :estado';
         $parametros['estado'] = $estado;
+    }
+    if ($busqueda !== '') {
+        $condiciones[] = "(p.consecutivo LIKE :consecutivo ESCAPE '!' OR p.orden_compra LIKE :orden_compra ESCAPE '!')";
+        $patron = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $busqueda) . '%';
+        $parametros['consecutivo'] = $patron;
+        $parametros['orden_compra'] = $patron;
+    }
+    if ($condiciones !== []) {
+        $sql .= ' WHERE ' . implode(' AND ', $condiciones);
     }
     $sql .= ' ORDER BY p.creado_en DESC, p.id DESC';
     $consulta = $conexion->prepare($sql);
@@ -50,6 +65,10 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
 <?php endif; ?>
 <form action="/pedidos/index.php" method="get" class="card border-0 shadow-sm mb-4">
     <div class="card-body d-flex flex-wrap align-items-end gap-3">
+        <div class="flex-grow-1">
+            <label for="busqueda" class="form-label">Consecutivo u orden de compra</label>
+            <input id="busqueda" name="busqueda" type="search" class="form-control" value="<?= escapar_html($busqueda) ?>" maxlength="40" placeholder="Escribe una referencia">
+        </div>
         <div>
             <label for="estado" class="form-label">Filtrar por estado</label>
             <select id="estado" name="estado" class="form-select">
@@ -59,12 +78,12 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
                 <?php endforeach; ?>
             </select>
         </div>
-        <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+        <button type="submit" class="btn btn-outline-primary">Buscar</button>
     </div>
 </form>
 <p class="text-secondary small mb-2"><?= count($pedidos) ?> pedido<?= count($pedidos) === 1 ? '' : 's' ?>.</p>
 <?php if ($pedidos === []): ?>
-    <div class="alert alert-info" role="status">No hay pedidos para este estado.</div>
+    <div class="alert alert-info" role="status">No hay pedidos que coincidan con los filtros.</div>
 <?php else: ?>
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
@@ -72,6 +91,7 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
                 <thead class="table-light">
                     <tr>
                         <th scope="col" class="ps-4">Consecutivo</th>
+                        <th scope="col">Orden de compra</th>
                         <th scope="col">Fecha en Bogotá</th>
                         <th scope="col">Cliente</th>
                         <th scope="col">Estado</th>
@@ -83,6 +103,7 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
                     <?php foreach ($pedidos as $pedido): ?>
                         <tr>
                             <td class="ps-4 fw-semibold"><?= escapar_html($pedido['consecutivo']) ?></td>
+                            <td><?= escapar_html($pedido['orden_compra'] ?? '—') ?></td>
                             <td class="text-nowrap"><?= escapar_html(fecha_pedido_bogota($pedido['creado_en'])) ?></td>
                             <td><?= escapar_html($pedido['cliente']) ?></td>
                             <td><span class="badge text-bg-<?= $pedido['estado'] === 'anulado' ? 'secondary' : ($pedido['estado'] === 'borrador' ? 'warning' : 'success') ?>"><?= escapar_html(ucfirst($pedido['estado'])) ?></span></td>
