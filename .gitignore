@@ -10,8 +10,10 @@ docs/GUIA_DE_APRENDIZAJE.md
 Thumbs.db
 ~$*
 
-# Pruebas locales fuera de la entrega
-tests/
+# Solo se entrega la prueba unitaria de cálculos
+tests/*
+!tests/totales_unitarios.php
+db/respaldo_local/
 
 # Borrador anterior del documento de arquitectura
 docs/01_Arquitectura_y_tecnologias.docx
