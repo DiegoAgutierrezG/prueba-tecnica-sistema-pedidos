@@ -26,7 +26,7 @@ $datos = [
     'nit_dv' => '',
     'razon_social' => '',
     'tipo' => '',
-    'cupo_credito' => '0.00',
+    'cupo_credito' => '0',
     'ciudad' => '',
 ];
 $errores = [];
@@ -102,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $titulo = $esEdicion ? 'Editar cliente' : 'Nuevo cliente';
+$cupoFormulario = preg_replace('/^([0-9]+)\.00$/', '$1', $datos['cupo_credito']);
 mostrar_cabecera($titulo, $usuario, false, 'clientes');
 ?>
 <nav aria-label="Ruta de navegación" class="mb-4">
@@ -156,7 +157,7 @@ mostrar_cabecera($titulo, $usuario, false, 'clientes');
                         </div>
                         <div class="col-md-6">
                             <label for="cupo_credito" class="form-label">Cupo de crédito (COP)</label>
-                            <input id="cupo_credito" name="cupo_credito" type="text" inputmode="decimal" class="form-control <?= isset($errores['cupo_credito']) ? 'is-invalid' : '' ?>" value="<?= escapar_html($datos['cupo_credito']) ?>" maxlength="20" placeholder="0.00" required>
+                            <input id="cupo_credito" name="cupo_credito" type="text" inputmode="decimal" class="form-control <?= isset($errores['cupo_credito']) ? 'is-invalid' : '' ?>" value="<?= escapar_html($cupoFormulario) ?>" maxlength="20" placeholder="0" required>
                             <?php if (isset($errores['cupo_credito'])): ?><div class="invalid-feedback"><?= escapar_html($errores['cupo_credito']) ?></div><?php endif; ?>
                             <div class="form-text">Sin separadores de miles; se aceptan coma o punto decimal.</div>
                         </div>

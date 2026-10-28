@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/moneda.php';
+
 function texto_cliente(mixed $valor): string
 {
     return is_string($valor) ? trim($valor) : '';
@@ -86,7 +88,5 @@ function validar_datos_cliente(array $entrada): array
 
 function mostrar_cupo(string $valor): string
 {
-    [$entero, $centavos] = explode('.', $valor);
-    $agrupado = preg_replace('/\B(?=(\d{3})+(?!\d))/', '.', $entero);
-    return '$ ' . $agrupado . ',' . $centavos;
+    return mostrar_decimal_cop($valor);
 }
