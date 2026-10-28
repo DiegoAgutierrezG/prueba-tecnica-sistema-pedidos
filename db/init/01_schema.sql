@@ -28,6 +28,15 @@ CREATE TABLE usuarios (
     CONSTRAINT chk_usuarios_activo CHECK (activo IN (0, 1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE intentos_acceso (
+    clave CHAR(64) NOT NULL,
+    intentos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    ultimo_fallo DATETIME(6) NULL,
+    bloqueado_hasta DATETIME(6) NULL,
+    PRIMARY KEY (clave),
+    KEY idx_intentos_bloqueado (bloqueado_hasta)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE clientes (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     nit VARCHAR(20) NOT NULL,
@@ -93,6 +102,7 @@ CREATE TABLE pedidos (
     iva DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
     total DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
     creado_en DATETIME(6) NOT NULL,
+    anulado_en DATETIME(6) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uq_pedidos_consecutivo (consecutivo),
     KEY idx_pedidos_cliente_estado (cliente_id, estado),
@@ -146,6 +156,26 @@ CREATE TABLE pagos (
     CONSTRAINT fk_pagos_usuario FOREIGN KEY (usuario_id)
         REFERENCES usuarios (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT chk_pagos_valor CHECK (valor > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Una devolución se registra solo cuando el dinero de un pedido anulado ya se entregó al cliente.
+-- Si el pedido anulado tiene pagos y no tiene devolución, el importe pagado sigue pendiente.
+CREATE TABLE devoluciones (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    pedido_id BIGINT UNSIGNED NOT NULL,
+    valor DECIMAL(14, 2) NOT NULL,
+    metodo ENUM('transferencia', 'efectivo', 'cheque') NOT NULL,
+    referencia VARCHAR(100) NULL,
+    fecha DATETIME(6) NOT NULL,
+    usuario_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_devoluciones_pedido (pedido_id),
+    KEY idx_devoluciones_usuario (usuario_id),
+    CONSTRAINT fk_devoluciones_pedido FOREIGN KEY (pedido_id)
+        REFERENCES pedidos (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT fk_devoluciones_usuario FOREIGN KEY (usuario_id)
+        REFERENCES usuarios (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT chk_devoluciones_valor CHECK (valor > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE movimientos_inventario (
