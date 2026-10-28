@@ -1,6 +1,6 @@
 # Sistema de pedidos de Distribuidora Andina
 
-Aplicación interna de pedidos, inventario, pagos y reportes para Distribuidora Andina S.A.S. Incluye el entorno local, el esquema y los datos de prueba, el acceso con permisos por rol y los módulos de clientes, productos, pedidos, pagos y reportes. El despliegue público aún está pendiente.
+Aplicación interna de pedidos, inventario, pagos y reportes para Distribuidora Andina S.A.S. Incluye el entorno local, el esquema y los datos de prueba, el acceso con permisos por rol y los módulos de clientes, productos, pedidos, pagos y reportes. La instalación de evaluación está publicada en AWS.
 
 ## Documentos de referencia
 
@@ -40,7 +40,9 @@ Al inicializar una base nueva, MySQL ejecuta `db/init/01_schema.sql` y luego `db
 | Vendedor | `vendedor@andina.co` |
 | Bodega | `bodega@andina.co` |
 
-La contraseña de prueba de las tres cuentas es `AndinaDemo2026!`. La base guarda únicamente su hash bcrypt (`$2y$`, costo 10), comprobado con `password_get_info()` en PHP 8.2.35. Es un hash irreversible, no un cifrado que permita recuperar la contraseña. Estas credenciales son solo para la demostración local.
+Al crear una base nueva con los datos iniciales, la contraseña de prueba de las tres cuentas es `AndinaDemo2026!`. La base guarda únicamente su hash bcrypt (`$2y$`, costo 10), comprobado con `password_get_info()` en PHP 8.2.35. Es un hash irreversible, no un cifrado que permita recuperar la contraseña. Estas credenciales iniciales son solo para una instalación de demostración.
+
+**En las bases actuales local y de AWS estas contraseñas iniciales fueron sustituidas** por las mismas claves aleatorias, distintas para cada cuenta. El responsable del despliegue entrega las credenciales vigentes al evaluador por un canal privado; no están en Git. Una instalación nueva seguirá recibiendo los datos iniciales indicados arriba hasta que se cambien sus contraseñas.
 
 ## Acceso y permisos
 
@@ -64,6 +66,21 @@ Los tres roles tienen permiso para consultar clientes, productos y pedidos. Clie
 - **Fechas:** pedidos, pagos y movimientos se guardan en UTC; la interfaz y los límites del reporte mensual usan `America/Bogota`. Así, un pedido próximo a medianoche se asigna al mes que corresponde en Bogotá.
 - **Cuentas y catálogos:** los roles disponibles son administrador, vendedor y bodega. Los usuarios y productos iniciales son ficticios y las contraseñas publicadas arriba son solo para la demostración local; deben sustituirse antes de exponer el sistema públicamente. Los bancos cargados son un catálogo inicial, no una verificación bancaria.
 
+## Despliegue de evaluación en AWS
+
+**URL:** <https://18-219-57-79.sslip.io/>. La instalación se obtiene de la rama `main` de este repositorio. El código PHP, el esquema y los datos iniciales son los mismos; las diferencias están en la configuración privada de la instancia y en las contraseñas cambiadas en su base de datos.
+
+Se usa una instancia **EC2 Amazon Linux 2023** en `us-east-2` (`t3.small`, disco EBS `gp3` cifrado de 20 GiB). Docker Compose ejecuta PHP/Apache, MySQL 8 y Caddy. Caddy recibe HTTP 80 y HTTPS 443, redirige a HTTPS y obtiene y renueva el certificado público. Apache escucha solo en `127.0.0.1:8080`; MySQL publica `127.0.0.1:3307` para administración local y recibe las conexiones de PHP por la red interna de Docker. El grupo de seguridad permite 22 únicamente desde la IP del administrador y 80/443 desde Internet; no abre 3306, 3307 ni 8080. `datos_mysql` y los certificados de Caddy se guardan en volúmenes persistentes.
+
+Para reproducir el despliegue:
+
+1. Crear una EC2 con IP pública y las reglas anteriores. Guardar el par de claves SSH fuera del repositorio. Instalar Docker y Git con `sudo dnf install -y docker git` y activar Docker con `sudo systemctl enable --now docker`. Instalar los complementos CLI Docker Compose y Buildx para Linux x86_64 siguiendo sus distribuciones oficiales; en esta instancia se usaron Compose `v5.6.0` y Buildx `v0.37.2`.
+2. Clonar este repositorio. En un `.env` privado y con permisos restringidos, definir `APP_PORT=127.0.0.1:8080`. Arrancar `docker compose up -d --build` para inicializar MySQL y comprobar `docker compose ps`. No publicar todavía el puerto de la aplicación en Internet.
+3. Crear una configuración Compose privada adicional para Caddy con `network_mode: host`, `restart: unless-stopped`, un volumen persistente en `/data` y otro en `/config`. Su `Caddyfile` debe usar el nombre público que resuelva a la IP de EC2 y `reverse_proxy 127.0.0.1:8080`. Montar en Apache una configuración con `SetEnvIf X-Forwarded-Proto ^https$ HTTPS=on` para que PHP marque la cookie de sesión como `Secure`. Aplicar ambas configuraciones con `docker compose -f docker-compose.yml -f RUTA_CONFIGURACION_PRIVADA up -d`.
+4. Cambiar las contraseñas iniciales de las tres cuentas antes de abrir el acceso público y entregarlas de forma privada al evaluador. Verificar el certificado HTTPS, el redireccionamiento desde HTTP, la cookie `Secure`, el ingreso de los tres roles y que los puertos de PHP/MySQL solo escuchen en `127.0.0.1`.
+
+El nombre gratuito `sslip.io` contiene la IP pública. **Si se detiene y vuelve a iniciar EC2, AWS puede asignar otra IP**; en ese caso hay que actualizar el nombre de Caddy y la URL de entrega, o usar una IP estática. La instancia debe permanecer encendida durante la evaluación y consume los créditos del plan gratuito de AWS. Docker y los contenedores están configurados para reiniciarse al arrancar el servidor. Las claves de MySQL, SSH y evaluación permanecen fuera de Git.
+
 ## Estado de entrega y pendientes
 
 En local, el esquema y los datos de prueba se ejecutaron en MySQL 8.0.46, también desde una copia nueva sin `.env`. Se comprobaron por HTTP el acceso de los tres roles, los módulos principales, los rechazos por permisos y CSRF, los abonos concurrentes, la anulación con devolución pendiente y los límites mensuales en Bogotá. Las opciones adicionales incluyen cartera por cliente, ventas por vendedor, inventario bajo mínimo, indicadores de inicio, búsqueda de pedidos y límite de intentos de ingreso. La prueba unitaria de totales se incluye en `tests/totales_unitarios.php`; las demás pruebas de desarrollo se conservan localmente fuera de la entrega. Se ejecuta sin modificar la base de datos:
@@ -72,4 +89,4 @@ En local, el esquema y los datos de prueba se ejecutaron en MySQL 8.0.46, tambi�
 docker compose run --rm --no-deps -v "${PWD}/tests:/pruebas:ro" app php /pruebas/totales_unitarios.php
 ```
 
-Queda pendiente el despliegue solicitado en AWS, configurar credenciales distintas de las cuentas de demostración y publicar la URL de acceso. El código, las tablas, los mensajes y la documentación del dominio se mantienen en español. Las alertas de devoluciones pendientes aparecen al abrir o recargar Pagos: a las 24 horas requieren atención y a las 48 horas se marcan como urgentes.
+En AWS se verificó el acceso por HTTPS de los tres roles y que la cookie se emite con `Secure`; después de reiniciar los contenedores, MySQL conservó los usuarios y productos iniciales. El código, las tablas, los mensajes y la documentación del dominio se mantienen en español. Las alertas de devoluciones pendientes aparecen al abrir o recargar Pagos: a las 24 horas requieren atención y a las 48 horas se marcan como urgentes.
