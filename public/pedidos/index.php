@@ -12,7 +12,7 @@ $estado = is_string($estadoRecibido) && in_array($estadoRecibido, $estados, true
 $busquedaRecibida = $_GET['busqueda'] ?? '';
 $busqueda = is_string($busquedaRecibida) ? trim($busquedaRecibida) : '';
 if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 40) {
-    mostrar_error(400, 'Búsqueda no válida', 'Escribe hasta 40 caracteres.', $usuario);
+    mostrar_error(400, 'Búsqueda no válida', 'La búsqueda admite hasta 40 caracteres. Acórtala y vuelve a buscar desde Pedidos.', $usuario);
 }
 
 try {
@@ -41,7 +41,7 @@ try {
     $pedidos = $consulta->fetchAll();
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la lista de pedidos.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la lista de pedidos. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 $aviso = $_SESSION['aviso_pedidos'] ?? null;
@@ -96,7 +96,7 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
                         <th scope="col">Cliente</th>
                         <th scope="col">Estado</th>
                         <th scope="col">Total</th>
-                        <th scope="col" class="pe-4">Detalle</th>
+                        <th scope="col" class="pe-4">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -108,7 +108,14 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
                             <td><?= escapar_html($pedido['cliente']) ?></td>
                             <td><span class="badge text-bg-<?= $pedido['estado'] === 'anulado' ? 'secondary' : ($pedido['estado'] === 'borrador' ? 'warning' : 'success') ?>"><?= escapar_html(ucfirst($pedido['estado'])) ?></span></td>
                             <td class="text-nowrap"><?= escapar_html(mostrar_decimal_pedido($pedido['total'])) ?></td>
-                            <td class="pe-4"><a href="/pedidos/detalle.php?id=<?= (int) $pedido['id'] ?>" class="btn btn-outline-primary btn-sm">Ver pedido</a></td>
+                            <td class="pe-4">
+                                <div class="d-flex gap-2">
+                                    <a href="/pedidos/detalle.php?id=<?= (int) $pedido['id'] ?>" class="btn btn-outline-primary btn-sm">Ver pedido</a>
+                                    <?php if ($pedido['estado'] === 'borrador' && tiene_permiso($usuario, 'pedidos.crear')): ?>
+                                        <a href="/pedidos/editar.php?id=<?= (int) $pedido['id'] ?>" class="btn btn-outline-primary btn-sm">Editar</a>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

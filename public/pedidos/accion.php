@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 $accion = $_POST['accion'] ?? null;
 if (!is_string($accion) || !isset($permisos[$accion])) {
-    mostrar_error(400, 'Acción inválida', 'La acción solicitada no existe.', $usuario);
+    mostrar_error(400, 'Acción inválida', 'La acción solicitada no existe. Vuelve al detalle y usa una de las acciones disponibles.', $usuario);
 }
 $usuario = exigir_permiso($permisos[$accion]);
 
@@ -27,16 +27,20 @@ if (!csrf_valido(is_string($token) ? $token : null)) {
     mostrar_error(403, 'Formulario vencido', 'Recarga el pedido e intenta la acción de nuevo.', $usuario);
 }
 $id = id_pedido_valido($_POST['id'] ?? null);
-if ($id === null) mostrar_error(400, 'Pedido inválido', 'No se pudo identificar el pedido.', $usuario);
+if ($id === null) mostrar_error(400, 'Pedido inválido', 'No se pudo identificar el pedido. Selecciónalo de nuevo desde la lista.', $usuario);
 
 try {
     cambiar_estado_pedido(conectar_bd(), $id, $usuario['id'], $accion);
+} catch (StockInsuficientePedido $error) {
+    $_SESSION['aviso_stock_pedido'] = ['id' => $id, 'mensaje' => $error->getMessage()];
+    header('Location: /pedidos/detalle.php?id=' . $id, true, 303);
+    exit;
 } catch (ReglaPedido $error) {
     mostrar_error(in_array($error->getCode(), [400, 404, 409, 422], true) ? $error->getCode() : 409,
         'No se pudo cambiar el pedido', $error->getMessage(), $usuario);
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo cambiar el estado del pedido.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo confirmar el cambio de estado del pedido. Revisa su detalle antes de intentarlo de nuevo.', $usuario);
 }
 
 $_SESSION['aviso_pedidos'] = match ($accion) {

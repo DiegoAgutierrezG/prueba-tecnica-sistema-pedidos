@@ -36,7 +36,7 @@ function lineas_recibidas(array $entrada): array
         }
         $id = (int) $idRecibido;
         if (isset($lineas[$id])) {
-            throw new ReglaPedido('Cada producto puede aparecer una sola vez en el pedido.', 422);
+            throw new ReglaPedido('El pedido tiene un producto repetido. Deja una sola línea por producto y ajusta su cantidad.', 422);
         }
         $lineas[$id] = (int) $cantidadRecibida;
     }
@@ -54,7 +54,7 @@ function cliente_para_pedido(PDO $conexion, int $id, bool $exigirActivo = true):
     $consulta->execute(['id' => $id]);
     $cliente = $consulta->fetch();
     if ($cliente === false || ($exigirActivo && (int) $cliente['activo'] !== 1)) {
-        throw new ReglaPedido('El cliente ya no está disponible para pedidos.', 422);
+        throw new ReglaPedido('El cliente ya no está disponible para pedidos. Selecciona un cliente activo.', 422);
     }
     return $cliente;
 }
@@ -70,7 +70,7 @@ function productos_para_pedido(PDO $conexion, array $ids): array
         $consulta->execute(['id' => $id]);
         $producto = $consulta->fetch();
         if ($producto === false || (int) $producto['activo'] !== 1) {
-            throw new ReglaPedido('Uno de los productos seleccionados ya no está activo.', 422);
+            throw new ReglaPedido('Uno de los productos seleccionados ya no está activo. Quítalo o sustitúyelo por uno activo.', 422);
         }
         $productos[$id] = $producto;
     }
@@ -88,7 +88,7 @@ function siguiente_consecutivo(PDO $conexion, int $anio): string
     $consulta->execute(['anio' => $anio]);
     $ultimo = (int) $consulta->fetchColumn();
     if ($ultimo >= 999999) {
-        throw new ReglaPedido('Se agotaron los consecutivos disponibles para este año.', 409);
+        throw new ReglaPedido('Se agotaron los consecutivos disponibles para este año. Solicita al administrador revisar la numeración antes de crear otro pedido.', 409);
     }
     $numero = $ultimo + 1;
     $actualizar = $conexion->prepare("UPDATE secuencias SET ultimo = :numero WHERE prefijo = 'PED' AND anio = :anio");
@@ -96,7 +96,7 @@ function siguiente_consecutivo(PDO $conexion, int $anio): string
     return sprintf('PED-%04d-%06d', $anio, $numero);
 }
 
-function crear_pedido(PDO $conexion, int $usuarioId, array $entrada): int
+function validar_entrada_borrador(array $entrada): array
 {
     $clienteId = id_pedido_valido($entrada['cliente_id'] ?? null);
     $orden = $entrada['orden_compra'] ?? '';
@@ -110,22 +110,116 @@ function crear_pedido(PDO $conexion, int $usuarioId, array $entrada): int
     }
     $cantidades = lineas_recibidas($entrada);
 
+    return [$clienteId, $orden, $cantidades];
+}
+
+function calcular_lineas_borrador(
+    PDO $conexion, array $cliente, array $cantidades, array $lineasGuardadas = [], bool $cambioCliente = false
+): array
+{
+    $productos = productos_para_pedido($conexion, array_keys($cantidades));
+    $lineas = [];
+    foreach ($cantidades as $productoId => $cantidad) {
+        $producto = $productos[$productoId];
+        $guardada = $lineasGuardadas[$productoId] ?? null;
+        $precio = $guardada === null ? $producto['precio_lista'] : $guardada['precio_unitario'];
+        $iva = $guardada === null
+            ? ((int) $producto['exento_iva'] === 1 ? 0 : 19)
+            : (int) $guardada['iva_porcentaje'];
+        $descuento = $guardada !== null && !$cambioCliente && (int) $guardada['cantidad'] === $cantidad
+            ? (int) $guardada['descuento_porcentaje']
+            : descuento_de_linea($cliente['tipo'], $cantidad);
+        $importes = calcular_importes_linea(
+            centavos_de_decimal($precio), $cantidad, $descuento, $iva
+        );
+        $lineas[] = ['producto_id' => $productoId, 'cantidad' => $cantidad,
+            'precio_unitario' => $precio, 'descuento_porcentaje' => $descuento,
+            'iva_porcentaje' => $iva] + $importes;
+    }
+    return $lineas;
+}
+
+function lineas_guardadas_borrador(PDO $conexion, int $pedidoId): array
+{
+    $consulta = $conexion->prepare(
+        'SELECT id, producto_id, cantidad, precio_unitario, descuento_porcentaje, iva_porcentaje
+         FROM pedido_detalle WHERE pedido_id = :id ORDER BY id FOR UPDATE'
+    );
+    $consulta->execute(['id' => $pedidoId]);
+    $lineas = [];
+    foreach ($consulta->fetchAll() as $linea) {
+        $lineas[(int) $linea['producto_id']] = $linea;
+    }
+    return $lineas;
+}
+
+function actualizar_lineas_borrador(PDO $conexion, int $pedidoId, array $lineas, array $guardadas): void
+{
+    $actualizar = $conexion->prepare(
+        'UPDATE pedido_detalle SET cantidad = :cantidad, descuento_porcentaje = :descuento
+         WHERE id = :id AND pedido_id = :pedido_id'
+    );
+    $nuevas = [];
+    foreach ($lineas as $linea) {
+        $anterior = $guardadas[$linea['producto_id']] ?? null;
+        if ($anterior === null) {
+            $nuevas[] = $linea;
+            continue;
+        }
+        if ((int) $anterior['cantidad'] !== $linea['cantidad']
+            || (int) $anterior['descuento_porcentaje'] !== $linea['descuento_porcentaje']) {
+            $actualizar->execute([
+                'cantidad' => $linea['cantidad'], 'descuento' => $linea['descuento_porcentaje'],
+                'id' => $anterior['id'], 'pedido_id' => $pedidoId,
+            ]);
+        }
+        unset($guardadas[$linea['producto_id']]);
+    }
+
+    $borrar = $conexion->prepare('DELETE FROM pedido_detalle WHERE id = :id AND pedido_id = :pedido_id');
+    foreach ($guardadas as $linea) {
+        $borrar->execute(['id' => $linea['id'], 'pedido_id' => $pedidoId]);
+    }
+    guardar_lineas_borrador($conexion, $pedidoId, $nuevas);
+}
+
+function guardar_lineas_borrador(PDO $conexion, int $pedidoId, array $lineas): void
+{
+    $insertarLinea = $conexion->prepare(
+        'INSERT INTO pedido_detalle
+         (pedido_id, producto_id, cantidad, precio_unitario, descuento_porcentaje, iva_porcentaje)
+         VALUES (:pedido_id, :producto_id, :cantidad, :precio_unitario, :descuento, :iva)'
+    );
+    foreach ($lineas as $linea) {
+        $insertarLinea->execute([
+            'pedido_id' => $pedidoId, 'producto_id' => $linea['producto_id'],
+            'cantidad' => $linea['cantidad'], 'precio_unitario' => $linea['precio_unitario'],
+            'descuento' => $linea['descuento_porcentaje'], 'iva' => $linea['iva_porcentaje'],
+        ]);
+    }
+}
+
+function version_borrador_pedido(PDO $conexion, int $pedidoId, array $pedido): string
+{
+    $consulta = $conexion->prepare(
+        'SELECT id, producto_id, cantidad, precio_unitario, descuento_porcentaje, iva_porcentaje
+         FROM pedido_detalle WHERE pedido_id = :id ORDER BY id'
+    );
+    $consulta->execute(['id' => $pedidoId]);
+    return hash('sha256', json_encode([
+        $pedido['cliente_id'], $pedido['orden_compra'], $pedido['subtotal'],
+        $pedido['descuento'], $pedido['iva'], $pedido['total'], $consulta->fetchAll(),
+    ], JSON_THROW_ON_ERROR));
+}
+
+function crear_pedido(PDO $conexion, int $usuarioId, array $entrada): int
+{
+    [$clienteId, $orden, $cantidades] = validar_entrada_borrador($entrada);
+
     $conexion->beginTransaction();
     try {
         $cliente = cliente_para_pedido($conexion, $clienteId);
-        $productos = productos_para_pedido($conexion, array_keys($cantidades));
-        $lineas = [];
-        foreach ($cantidades as $productoId => $cantidad) {
-            $producto = $productos[$productoId];
-            $descuento = descuento_de_linea($cliente['tipo'], $cantidad);
-            $iva = (int) $producto['exento_iva'] === 1 ? 0 : 19;
-            $importes = calcular_importes_linea(
-                centavos_de_decimal($producto['precio_lista']), $cantidad, $descuento, $iva
-            );
-            $lineas[] = ['producto_id' => $productoId, 'cantidad' => $cantidad,
-                'precio_unitario' => $producto['precio_lista'], 'descuento_porcentaje' => $descuento,
-                'iva_porcentaje' => $iva] + $importes;
-        }
+        $lineas = calcular_lineas_borrador($conexion, $cliente, $cantidades);
         $totales = calcular_totales_pedido($lineas);
         $anio = (int) (new DateTimeImmutable('now', new DateTimeZone('America/Bogota')))->format('Y');
         $consecutivo = siguiente_consecutivo($conexion, $anio);
@@ -145,20 +239,57 @@ function crear_pedido(PDO $conexion, int $usuarioId, array $entrada): int
             'total' => decimal_de_centavos($totales['total']),
         ]);
         $pedidoId = (int) $conexion->lastInsertId();
-        $insertarLinea = $conexion->prepare(
-            'INSERT INTO pedido_detalle
-             (pedido_id, producto_id, cantidad, precio_unitario, descuento_porcentaje, iva_porcentaje)
-             VALUES (:pedido_id, :producto_id, :cantidad, :precio_unitario, :descuento, :iva)'
-        );
-        foreach ($lineas as $linea) {
-            $insertarLinea->execute([
-                'pedido_id' => $pedidoId, 'producto_id' => $linea['producto_id'],
-                'cantidad' => $linea['cantidad'], 'precio_unitario' => $linea['precio_unitario'],
-                'descuento' => $linea['descuento_porcentaje'], 'iva' => $linea['iva_porcentaje'],
-            ]);
-        }
+        guardar_lineas_borrador($conexion, $pedidoId, $lineas);
         $conexion->commit();
         return $pedidoId;
+    } catch (Throwable $error) {
+        if ($conexion->inTransaction()) $conexion->rollBack();
+        throw $error;
+    }
+}
+
+function actualizar_borrador_pedido(PDO $conexion, int $pedidoId, array $entrada, string $versionEsperada): void
+{
+    [$clienteId, $orden, $cantidades] = validar_entrada_borrador($entrada);
+
+    $conexion->beginTransaction();
+    try {
+        $consulta = $conexion->prepare(
+            'SELECT id, estado, cliente_id, orden_compra, subtotal, descuento, iva, total
+             FROM pedidos WHERE id = :id FOR UPDATE'
+        );
+        $consulta->execute(['id' => $pedidoId]);
+        $pedido = $consulta->fetch();
+        if ($pedido === false) throw new ReglaPedido('El pedido solicitado no existe. Selecciona otro desde la lista de pedidos.', 404);
+        if ($pedido['estado'] !== 'borrador') {
+            throw new ReglaPedido('Solo se pueden editar pedidos en borrador. Actualiza la página.', 409);
+        }
+        if (!preg_match('/^[a-f0-9]{64}$/D', $versionEsperada)
+            || !hash_equals(version_borrador_pedido($conexion, $pedidoId, $pedido), $versionEsperada)) {
+            throw new ReglaPedido('Este borrador cambió desde que abriste el formulario. Recarga el pedido antes de editarlo.', 409);
+        }
+
+        $cliente = cliente_para_pedido($conexion, $clienteId);
+        $guardadas = lineas_guardadas_borrador($conexion, $pedidoId);
+        $lineas = calcular_lineas_borrador(
+            $conexion, $cliente, $cantidades, $guardadas, (int) $pedido['cliente_id'] !== $clienteId
+        );
+        $totales = calcular_totales_pedido($lineas);
+        $actualizar = $conexion->prepare(
+            "UPDATE pedidos SET cliente_id = :cliente_id, orden_compra = :orden_compra,
+             subtotal = :subtotal, descuento = :descuento, iva = :iva, total = :total
+             WHERE id = :id AND estado = 'borrador'"
+        );
+        $actualizar->execute([
+            'id' => $pedidoId, 'cliente_id' => $clienteId,
+            'orden_compra' => $orden === '' ? null : $orden,
+            'subtotal' => decimal_de_centavos($totales['subtotal']),
+            'descuento' => decimal_de_centavos($totales['descuento']),
+            'iva' => decimal_de_centavos($totales['iva']),
+            'total' => decimal_de_centavos($totales['total']),
+        ]);
+        actualizar_lineas_borrador($conexion, $pedidoId, $lineas, $guardadas);
+        $conexion->commit();
     } catch (Throwable $error) {
         if ($conexion->inTransaction()) $conexion->rollBack();
         throw $error;
@@ -212,7 +343,7 @@ function cambiar_estado_pedido(PDO $conexion, int $pedidoId, int $usuarioId, str
         'anular' => ['desde' => ['borrador', 'confirmado'], 'hasta' => 'anulado'],
     ];
     if (!isset($transiciones[$accion])) {
-        throw new ReglaPedido('La acción solicitada no existe.', 400);
+        throw new ReglaPedido('La acción solicitada no existe. Vuelve al detalle y elige una acción disponible.', 400);
     }
 
     $conexion->beginTransaction();
@@ -220,7 +351,7 @@ function cambiar_estado_pedido(PDO $conexion, int $pedidoId, int $usuarioId, str
         $consulta = $conexion->prepare('SELECT id, cliente_id, estado, total FROM pedidos WHERE id = :id FOR UPDATE');
         $consulta->execute(['id' => $pedidoId]);
         $pedido = $consulta->fetch();
-        if ($pedido === false) throw new ReglaPedido('El pedido solicitado no existe.', 404);
+        if ($pedido === false) throw new ReglaPedido('El pedido solicitado no existe. Selecciona otro desde la lista de pedidos.', 404);
         $estadoAnterior = $pedido['estado'];
         if (!in_array($estadoAnterior, $transiciones[$accion]['desde'], true)) {
             throw new ReglaPedido('El estado actual no permite esta acción. Actualiza el pedido.', 409);
@@ -231,14 +362,14 @@ function cambiar_estado_pedido(PDO $conexion, int $pedidoId, int $usuarioId, str
             $saldo = saldo_cliente_centavos($conexion, (int) $pedido['cliente_id']);
             $total = centavos_de_decimal($pedido['total']);
             if ($total > centavos_de_decimal($cliente['cupo_credito']) - $saldo) {
-                throw new ReglaPedido('El saldo pendiente más este pedido supera el cupo de crédito del cliente.', 409);
+                throw new ReglaPedido('El saldo pendiente más este pedido supera el cupo de crédito del cliente. Reduce el valor del pedido o revisa el cupo y los pagos pendientes.', 409);
             }
             $lineas = detalle_lineas_pedido($conexion, $pedidoId);
-            if ($lineas === []) throw new ReglaPedido('El pedido no tiene productos.', 409);
+            if ($lineas === []) throw new ReglaPedido('El pedido no tiene productos. Añade al menos uno antes de confirmarlo.', 409);
             $productos = productos_para_pedido($conexion, array_column($lineas, 'producto_id'));
             foreach ($lineas as $linea) {
                 if ((int) $productos[(int) $linea['producto_id']]['stock'] < (int) $linea['cantidad']) {
-                    throw new ReglaPedido('No hay stock suficiente de ' . $linea['sku'] . ' (' . $linea['nombre'] . ').', 409);
+                    throw new StockInsuficientePedido('No hay stock suficiente de ' . $linea['sku'] . ' (' . $linea['nombre'] . '). Reduce la cantidad o repón existencias antes de confirmar.', 409);
                 }
             }
         } elseif ($accion === 'anular' && $estadoAnterior === 'confirmado') {
@@ -248,7 +379,7 @@ function cambiar_estado_pedido(PDO $conexion, int $pedidoId, int $usuarioId, str
             $bloquear = $conexion->prepare('SELECT id FROM productos WHERE id = :id FOR UPDATE');
             foreach ($ids as $id) {
                 $bloquear->execute(['id' => $id]);
-                if ($bloquear->fetch() === false) throw new ReglaPedido('Falta un producto del pedido.', 409);
+                if ($bloquear->fetch() === false) throw new ReglaPedido('Falta un producto del pedido. Actualiza el borrador y selecciona un producto disponible.', 409);
             }
         }
 

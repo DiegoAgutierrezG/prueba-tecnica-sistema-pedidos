@@ -8,7 +8,7 @@ require_once __DIR__ . '/../pagos/funciones.php';
 
 $usuario = exigir_permiso('pedidos.ver');
 $id = id_pedido_valido($_GET['id'] ?? null);
-if ($id === null) mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe.', $usuario);
+if ($id === null) mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe. Selecciona otro desde la lista de pedidos.', $usuario);
 
 try {
     $conexion = conectar_bd();
@@ -23,7 +23,7 @@ try {
     );
     $consulta->execute(['id' => $id]);
     $pedido = $consulta->fetch();
-    if ($pedido === false) mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe.', $usuario);
+    if ($pedido === false) mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe. Selecciona otro desde la lista de pedidos.', $usuario);
     $lineas = detalle_lineas_pedido($conexion, $id);
     $totales = calcular_totales_pedido($lineas);
     $consulta = $conexion->prepare('SELECT COALESCE(SUM(valor), 0.00) FROM pagos WHERE pedido_id = :id');
@@ -34,11 +34,15 @@ try {
     $total = centavos_de_decimal($pedido['total']);
 } catch (Throwable $error) {
     error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el detalle del pedido.', $usuario);
+    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar el detalle del pedido. Vuelve a la lista e inténtalo de nuevo en unos minutos.', $usuario);
 }
 
 $aviso = $_SESSION['aviso_pedidos'] ?? null;
 unset($_SESSION['aviso_pedidos']);
+$avisoStock = $_SESSION['aviso_stock_pedido'] ?? null;
+unset($_SESSION['aviso_stock_pedido']);
+$mensajeStock = is_array($avisoStock) && ($avisoStock['id'] ?? null) === $id
+    && is_string($avisoStock['mensaje'] ?? null) ? $avisoStock['mensaje'] : null;
 mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
 ?>
 <nav aria-label="Ruta de navegación" class="mb-4">
@@ -49,15 +53,35 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
 <?php if (is_string($aviso) && $aviso !== ''): ?>
     <div class="alert alert-success" role="status"><?= escapar_html($aviso) ?></div>
 <?php endif; ?>
+<?php if ($mensajeStock !== null): ?>
+    <dialog id="dialogo-stock-confirmacion" class="dialogo-confirmacion aviso-stock" aria-labelledby="titulo-stock-confirmacion" aria-describedby="descripcion-stock-confirmacion">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a3.5 3.5 0 0 1 6 0l16 28a3.5 3.5 0 0 1-3 5H8a3.5 3.5 0 0 1-3-5zM24 18v11m0 5v1"/></svg>
+        </span>
+        <h2 id="titulo-stock-confirmacion">Stock insuficiente</h2>
+        <p id="descripcion-stock-confirmacion"><?= escapar_html($mensajeStock) ?> El pedido sigue como borrador.</p>
+        <form method="dialog" class="acciones-confirmacion">
+            <button type="submit" class="btn btn-primary" autofocus>Entendido</button>
+        </form>
+    </dialog>
+    <noscript><div class="alert alert-warning" role="alert"><?= escapar_html($mensajeStock) ?> El pedido sigue como borrador.</div></noscript>
+<?php endif; ?>
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
     <div>
         <h1 class="h2 mb-2"><?= escapar_html($pedido['consecutivo']) ?></h1>
         <span class="badge text-bg-<?= $pedido['estado'] === 'anulado' ? 'secondary' : ($pedido['estado'] === 'borrador' ? 'warning' : 'success') ?>"><?= escapar_html(ucfirst($pedido['estado'])) ?></span>
     </div>
     <div class="d-flex flex-wrap gap-2">
+        <?php if ($pedido['estado'] === 'borrador' && tiene_permiso($usuario, 'pedidos.crear')): ?>
+            <a href="/pedidos/editar.php?id=<?= $id ?>" class="btn btn-outline-primary">Editar borrador</a>
+        <?php endif; ?>
         <?php if (in_array($pedido['estado'], ['confirmado', 'despachado', 'entregado'], true)
             && $pagado < $total && tiene_permiso($usuario, 'pagos.registrar')): ?>
             <a href="/pagos/nuevo.php?id=<?= $id ?>" class="btn btn-outline-primary">Registrar pago</a>
+        <?php endif; ?>
+        <?php if ($pagado > 0 && ($pedido['estado'] === 'anulado' || $pagado >= $total)
+            && tiene_permiso($usuario, 'pagos.registrar')): ?>
+            <a href="/pagos/nuevo.php?id=<?= $id ?>#historial-pagos" class="btn btn-outline-primary">Ver historial de pagos</a>
         <?php endif; ?>
         <?php
         $acciones = [];
@@ -73,14 +97,27 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
             : '¿Confirmas que deseas anular este pedido?';
         ?>
         <?php foreach ($acciones as $accion => $etiqueta): ?>
-            <form action="/pedidos/accion.php" method="post" class="m-0">
+            <form action="/pedidos/accion.php" method="post" class="m-0<?= $accion === 'anular' ? ' formulario-anular-pedido' : '' ?>">
                 <input type="hidden" name="token_csrf" value="<?= escapar_html(token_csrf()) ?>">
                 <input type="hidden" name="id" value="<?= $id ?>">
-                <button type="submit" name="accion" value="<?= escapar_html($accion) ?>" class="btn btn-<?= $accion === 'anular' ? 'outline-danger' : 'primary' ?>" <?= $accion === 'anular' ? 'onclick="return confirm(\'' . escapar_html($mensajeAnulacion) . '\')"' : '' ?>><?= escapar_html($etiqueta) ?></button>
+                <button type="submit" name="accion" value="<?= escapar_html($accion) ?>" class="btn btn-<?= $accion === 'anular' ? 'outline-danger' : 'primary' ?>"><?= escapar_html($etiqueta) ?></button>
             </form>
         <?php endforeach; ?>
     </div>
 </div>
+<?php if (isset($acciones['anular'])): ?>
+    <dialog id="dialogo-anular-pedido" class="dialogo-confirmacion es-desactivacion" aria-labelledby="titulo-anular-pedido" aria-describedby="descripcion-anular-pedido">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="M18 18l12 12m0-12L18 30"/></svg>
+        </span>
+        <h2 id="titulo-anular-pedido">¿Anular pedido?</h2>
+        <p id="descripcion-anular-pedido"><?= escapar_html($mensajeAnulacion) ?></p>
+        <div class="acciones-confirmacion">
+            <button type="button" class="btn btn-outline-secondary" data-cancelar-anulacion>Volver</button>
+            <button type="button" class="btn btn-danger" data-confirmar-anulacion>Sí, anular pedido</button>
+        </div>
+    </dialog>
+<?php endif; ?>
 <?php if ($pedido['estado'] === 'confirmado' && $pagado > 0): ?>
     <div class="alert alert-warning" role="status">
         Este pedido tiene pagos registrados. Si lo anulas, el stock se restituye y <?= escapar_html(mostrar_monto_pago($pagado)) ?> quedará pendiente de devolver al cliente.
@@ -206,5 +243,5 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
         </div></div>
     </div>
 </div>
-<script src="/assets/js/detalle-pedido.js?v=1" defer></script>
+<script src="/assets/js/detalle-pedido.js?v=3" defer></script>
 <?php mostrar_pie(true); ?>

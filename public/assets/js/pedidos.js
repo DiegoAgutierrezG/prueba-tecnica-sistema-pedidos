@@ -1,5 +1,5 @@
 (() => {
-    const formulario = document.querySelector('form[action="/pedidos/nuevo.php"]');
+    const formulario = document.querySelector('[data-formulario-pedido]');
     const contenedor = document.getElementById('lineas-pedido');
     const plantilla = document.getElementById('plantilla-linea');
     const agregar = document.querySelector('[data-agregar-linea]');
