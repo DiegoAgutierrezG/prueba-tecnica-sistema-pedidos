@@ -1,6 +1,6 @@
 # Variables de entorno con valores reales
 .env
-docs/GUIA_DE_APRENDIZAJE.md
+docs/
 
 # Editores y sistema
 .idea/
@@ -14,6 +14,3 @@ Thumbs.db
 tests/*
 !tests/totales_unitarios.php
 db/respaldo_local/
-
-# Borrador anterior del documento de arquitectura
-docs/01_Arquitectura_y_tecnologias.docx

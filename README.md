@@ -2,13 +2,9 @@
 
 Aplicación interna de pedidos, inventario, pagos y reportes para Distribuidora Andina S.A.S. Incluye el entorno local, el esquema y los datos de prueba, el acceso con permisos por rol y los módulos de clientes, productos, pedidos, pagos y reportes. La instalación de evaluación está publicada en AWS.
 
-## Documentos de referencia
+## Modelo de datos
 
-- [Requisitos en PDF](docs/Requerimientos_Aplicativo_Pedidos.pdf) y [en Word](docs/Requerimientos_Aplicativo_Pedidos.docx).
-- [Modelo de datos y casos de uso](docs/Diagramas_Aplicativo_Pedidos.html).
-- [Arquitectura y tecnologías (Word)](docs/01_Arquitectura_y_tecnologias_v1.1.docx).
-
-Los documentos originales de requisitos y diagramas se conservan sin modificaciones. Las reglas de negocio de la sección 4 rigen los cálculos, el crédito y los movimientos de inventario.
+El [esquema SQL](db/init/01_schema.sql) define las 13 tablas y sus relaciones; los [datos de prueba](db/init/02_seed.sql) se cargan al inicializar la base. El enunciado original y los diagramas de apoyo se archivan por separado, fuera del repositorio, en la carpeta `Documentacion_Andina` del escritorio del autor. Las reglas de negocio de la sección 4 del enunciado rigen los cálculos, el crédito y los movimientos de inventario.
 
 ## Entorno local
 
