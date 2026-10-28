@@ -6,11 +6,6 @@ require_once __DIR__ . '/includes/vista.php';
 
 $usuario = exigir_sesion();
 $secciones = secciones_visibles($usuario);
-$acciones = array_filter(
-    ACCIONES,
-    static fn (string $nombre, string $permiso): bool => tiene_permiso($usuario, $permiso),
-    ARRAY_FILTER_USE_BOTH
-);
 $estadosPedido = ['borrador' => 0, 'confirmado' => 0, 'despachado' => 0, 'entregado' => 0, 'anulado' => 0];
 $nombresEstado = [
     'borrador' => 'en borrador', 'confirmado' => 'confirmados',
@@ -76,14 +71,4 @@ mostrar_cabecera('Inicio', $usuario, false, 'inicio');
     <?php endforeach; ?>
 </div>
 
-<h2 class="h4 mt-5 mb-3">Acciones asignadas a tu rol</h2>
-<div class="card border-0 shadow-sm">
-    <div class="card-body p-4">
-        <ul class="row row-cols-1 row-cols-md-2 g-2 mb-0 ps-4">
-            <?php foreach ($acciones as $nombre): ?>
-                <li class="col"><?= escapar_html($nombre) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    </div>
-</div>
 <?php mostrar_pie(true); ?>
