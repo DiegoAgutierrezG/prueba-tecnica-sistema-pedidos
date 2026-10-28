@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/vista.php';
+require_once __DIR__ . '/includes/intentos_acceso.php';
 
 try {
     if (usuario_actual() !== null) {
@@ -34,16 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (strlen($correo) <= 120 && filter_var($correo, FILTER_VALIDATE_EMAIL) && $clave !== '') {
         try {
-            $consulta = conectar_bd()->prepare(
-                'SELECT id, clave_hash FROM usuarios WHERE correo = :correo AND activo = 1 LIMIT 1'
+            $resultadoIngreso = verificar_ingreso(
+                conectar_bd(), $correo, $clave, $_SERVER['REMOTE_ADDR'] ?? 'sin-ip'
             );
-            $consulta->execute(['correo' => $correo]);
-            $usuarioEncontrado = $consulta->fetch();
-
-            if ($usuarioEncontrado !== false && password_verify($clave, $usuarioEncontrado['clave_hash'])) {
-                iniciar_sesion_de_usuario((int) $usuarioEncontrado['id']);
+            if (is_int($resultadoIngreso)) {
+                iniciar_sesion_de_usuario($resultadoIngreso);
                 header('Location: /index.php', true, 303);
                 exit;
+            }
+            if ($resultadoIngreso === 'bloqueado') {
+                http_response_code(429);
+                header('Retry-After: 900');
+                $mensaje = 'Demasiados intentos de ingreso. Inténtalo de nuevo en 15 minutos.';
             }
         } catch (Throwable $error) {
             error_log((string) $error);
@@ -51,7 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $mensaje = 'Correo o contraseña incorrectos.';
+    if ($mensaje === '') {
+        $mensaje = 'Correo o contraseña incorrectos.';
+    }
 }
 
 mostrar_cabecera('Iniciar sesión', null, true);

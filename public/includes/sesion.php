@@ -24,7 +24,9 @@ function iniciar_sesion(): void
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
-    session_start();
+    if (!@session_start()) {
+        throw new RuntimeException('No se pudo iniciar la sesión.');
+    }
 }
 
 function token_csrf(): string
@@ -52,7 +54,7 @@ function iniciar_sesion_de_usuario(int $usuarioId): void
     iniciar_sesion();
     $_SESSION = [];
 
-    if (!session_regenerate_id(true)) {
+    if (!@session_regenerate_id(true)) {
         throw new RuntimeException('No se pudo renovar la sesión.');
     }
 
