@@ -28,11 +28,11 @@ Si no existe `.env`, el primer arranque genera dos contraseñas aleatorias: una 
 | `app` | `php:8.2-apache` con `pdo_mysql` | <http://localhost:8080> | Sirve `public/` y lee la clave de conexión desde un archivo privado montado solo para lectura. |
 | `db` | `mysql:8.0` | `127.0.0.1:3307` | Guarda los datos en `datos_mysql`, crea las claves privadas al primer arranque e inicializa la base con `db/init/`. |
 
-`DB_NAME` y `DB_USER` tienen valores por defecto que son nombres, no credenciales. `DB_PASSWORD` y `MYSQL_ROOT_PASSWORD` son opcionales en una instalación nueva; si se omiten, `db/docker/preparar-claves.sh` genera claves aleatorias y las guarda en `clave_aplicacion` y `clave_root`. PHP recibe únicamente el archivo de la clave de aplicación; la clave de administración permanece en `db`. Para ejecutar las migraciones con la clave privada se usa el [comando documentado](db/migraciones/README.md). `APP_PORT` y `MYSQL_PORT` permiten cambiar los puertos locales, que por defecto son 8080 y 3307. `DB_HOST=db` y `DB_PORT=3306` son direcciones internas entre contenedores. El puerto 3307 solo permite conectar herramientas del mismo equipo a MySQL. La zona horaria del entorno es `America/Bogota`.
+`DB_NAME` y `DB_USER` tienen valores por defecto que son nombres, no credenciales. `DB_PASSWORD` y `MYSQL_ROOT_PASSWORD` son opcionales en una instalación nueva; si se omiten, `db/docker/preparar-claves.sh` genera claves aleatorias y las guarda en `clave_aplicacion` y `clave_root`. PHP recibe únicamente el archivo de la clave de aplicación; la clave de administración permanece en `db`. `APP_PORT` y `MYSQL_PORT` permiten cambiar los puertos locales, que por defecto son 8080 y 3307. `DB_HOST=db` y `DB_PORT=3306` son direcciones internas entre contenedores. El puerto 3307 solo permite conectar herramientas del mismo equipo a MySQL. La zona horaria del entorno es `America/Bogota`.
 
 ## Datos de prueba
 
-Al inicializar una base nueva, MySQL ejecuta `db/init/01_schema.sql` y luego `db/init/02_seed.sql`. Este último carga tres roles, tres usuarios, 18 bancos, cuatro categorías, 25 productos, ocho clientes y un movimiento de entrada por cada producto con stock inicial. Los bancos forman un catálogo inicial; los demás son datos ficticios para comprobar el comportamiento del sistema. Los scripts fijan `utf8mb4` para cargar bien tildes y eñes. Para bases existentes se incluyen migraciones de una sola ejecución en [db/migraciones](db/migraciones/README.md); no hace falta borrar el volumen.
+Al inicializar una base nueva, MySQL ejecuta `db/init/01_schema.sql` y luego `db/init/02_seed.sql`. Este último carga tres roles, tres usuarios, 18 bancos, cuatro categorías, 25 productos, ocho clientes y un movimiento de entrada por cada producto con stock inicial. Los bancos forman un catálogo inicial; los demás son datos ficticios para comprobar el comportamiento del sistema. Los scripts fijan `utf8mb4` para cargar bien tildes y eñes. La inicialización solo se ejecuta con un volumen de MySQL vacío; una base existente no se modifica al reiniciar los contenedores.
 
 | Rol | Correo |
 | --- | --- |
@@ -72,8 +72,4 @@ En local, el esquema y los datos de prueba se ejecutaron en MySQL 8.0.46, tambi�
 docker compose run --rm --no-deps -v "${PWD}/tests:/pruebas:ro" app php /pruebas/totales_unitarios.php
 ```
 
-Queda pendiente el despliegue solicitado en AWS, configurar credenciales distintas de las cuentas de demostración y publicar la URL de acceso. Los cambios locales recientes también deben organizarse en commits por funcionalidad, con mensajes en español, antes de cerrar la entrega. El código, las tablas, los mensajes y la documentación del dominio se mantienen en español.
-
-## Actualización de una base existente
-
-Si ya existe un volumen de MySQL, realiza un respaldo y aplica una sola vez, en orden, las migraciones `002_intentos_acceso.sql`, `003_devoluciones.sql`, `004_fecha_anulacion.sql`, `005_datos_pago.sql` y `006_bancos.sql` de [db/migraciones](db/migraciones/README.md). Una base nueva incluye esos cambios en `db/init/01_schema.sql` y `db/init/02_seed.sql`; no requiere migraciones manuales. Las alertas de devoluciones pendientes aparecen al abrir o recargar Pagos: a las 24 horas requieren atención y a las 48 horas se marcan como urgentes.
+Queda pendiente el despliegue solicitado en AWS, configurar credenciales distintas de las cuentas de demostración y publicar la URL de acceso. El código, las tablas, los mensajes y la documentación del dominio se mantienen en español. Las alertas de devoluciones pendientes aparecen al abrir o recargar Pagos: a las 24 horas requieren atención y a las 48 horas se marcan como urgentes.
