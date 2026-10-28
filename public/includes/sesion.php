@@ -52,6 +52,14 @@ function csrf_valido(?string $token): bool
 function iniciar_sesion_de_usuario(int $usuarioId): void
 {
     iniciar_sesion();
+    $consulta = conectar_bd()->prepare(
+        'SELECT clave_hash, rol_id FROM usuarios WHERE id = :id AND activo = 1 LIMIT 1'
+    );
+    $consulta->execute(['id' => $usuarioId]);
+    $datosAcceso = $consulta->fetch();
+    if ($datosAcceso === false) {
+        throw new RuntimeException('El usuario ya no está disponible.');
+    }
     $_SESSION = [];
 
     if (!@session_regenerate_id(true)) {
@@ -59,6 +67,7 @@ function iniciar_sesion_de_usuario(int $usuarioId): void
     }
 
     $_SESSION['usuario_id'] = $usuarioId;
+    $_SESSION['firma_acceso'] = hash('sha256', $datosAcceso['clave_hash'] . ':' . $datosAcceso['rol_id']);
     $_SESSION['token_csrf'] = bin2hex(random_bytes(32));
     $_SESSION['inicio_sesion'] = time();
     $_SESSION['ultimo_acceso'] = $_SESSION['inicio_sesion'];
@@ -95,7 +104,8 @@ function usuario_actual(): ?array
     }
 
     $consulta = conectar_bd()->prepare(
-        'SELECT u.id, u.nombre, u.correo, r.codigo AS codigo_rol, r.nombre AS nombre_rol
+        'SELECT u.id, u.nombre, u.correo, u.clave_hash, u.rol_id,
+                r.codigo AS codigo_rol, r.nombre AS nombre_rol
          FROM usuarios AS u
          INNER JOIN roles AS r ON r.id = u.rol_id
          WHERE u.id = :id AND u.activo = 1 LIMIT 1'
@@ -108,7 +118,15 @@ function usuario_actual(): ?array
         return null;
     }
 
+    $firmaGuardada = $_SESSION['firma_acceso'] ?? null;
+    if (!is_string($firmaGuardada)
+        || !hash_equals($firmaGuardada, hash('sha256', $usuario['clave_hash'] . ':' . $usuario['rol_id']))) {
+        cerrar_sesion();
+        return null;
+    }
+
     $usuario['id'] = (int) $usuario['id'];
+    unset($usuario['clave_hash'], $usuario['rol_id']);
     $_SESSION['ultimo_acceso'] = $ahora;
     return $usuario;
 }

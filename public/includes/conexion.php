@@ -9,6 +9,15 @@ function conectar_bd(): PDO
     $nombre = getenv('DB_NAME');
     $usuario = getenv('DB_USER');
     $clave = getenv('DB_PASSWORD');
+    $archivoClave = getenv('DB_PASSWORD_FILE');
+
+    if (is_string($archivoClave) && $archivoClave !== '') {
+        $contenido = @file_get_contents($archivoClave);
+        if ($contenido === false) {
+            throw new RuntimeException('No se pudo leer la clave de la base de datos.');
+        }
+        $clave = rtrim($contenido, "\r\n");
+    }
 
     if (!$host || !$puerto || !$nombre || !$usuario || !$clave) {
         throw new RuntimeException('Falta configurar la conexión a la base de datos.');
