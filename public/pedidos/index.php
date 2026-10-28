@@ -61,7 +61,17 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
     <?php endif; ?>
 </div>
 <?php if (is_string($aviso) && $aviso !== ''): ?>
-    <div class="alert alert-success" role="status"><?= escapar_html($aviso) ?></div>
+    <dialog id="dialogo-aviso-pedido" class="dialogo-confirmacion" aria-labelledby="titulo-aviso-pedido" aria-describedby="descripcion-aviso-pedido">
+        <span class="icono-confirmacion" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="m16 24 5.5 5.5L32 19"/></svg>
+        </span>
+        <h2 id="titulo-aviso-pedido">Pedido actualizado</h2>
+        <p id="descripcion-aviso-pedido"><?= escapar_html($aviso) ?></p>
+        <form method="dialog" class="acciones-confirmacion">
+            <button type="submit" class="btn btn-primary" autofocus>Entendido</button>
+        </form>
+    </dialog>
+    <noscript><div class="alert alert-success" role="status"><?= escapar_html($aviso) ?></div></noscript>
 <?php endif; ?>
 <form action="/pedidos/index.php" method="get" class="card border-0 shadow-sm mb-4">
     <div class="card-body d-flex flex-wrap align-items-end gap-3">
@@ -123,4 +133,5 @@ mostrar_cabecera('Pedidos', $usuario, false, 'pedidos');
         </div>
     </div>
 <?php endif; ?>
+<script src="/assets/js/avisos-pedidos.js?v=1" defer></script>
 <?php mostrar_pie(true); ?>

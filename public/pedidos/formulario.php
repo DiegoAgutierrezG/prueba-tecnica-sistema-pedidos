@@ -94,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['aviso_pedidos'] = 'Cambios guardados en el borrador.';
         } else {
             $pedidoId = crear_pedido(conectar_bd(), $usuario['id'], $_POST);
+            $_SESSION['aviso_pedidos'] = 'Pedido guardado como borrador.';
         }
         header('Location: /pedidos/detalle.php?id=' . $pedidoId, true, 303);
         exit;
