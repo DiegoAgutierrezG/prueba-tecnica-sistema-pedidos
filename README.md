@@ -100,8 +100,16 @@ El nombre gratuito `sslip.io` contiene la IP pública. **Si se detiene y vuelve 
 
 En local, el esquema y los datos de prueba se ejecutaron en MySQL 8.0.46, también desde una copia nueva sin `.env`. Se comprobaron por HTTP el acceso de los tres roles, los módulos principales, los rechazos por permisos y CSRF, los abonos concurrentes, la anulación con devolución pendiente y los límites mensuales en Bogotá. Las opciones adicionales incluyen cartera por cliente, ventas por vendedor, inventario bajo mínimo, indicadores de inicio, búsqueda de pedidos y límite de intentos de ingreso. La prueba unitaria de totales se incluye en `tests/totales_unitarios.php`; las demás pruebas de desarrollo se conservan localmente fuera de la entrega. Se ejecuta sin modificar la base de datos:
 
+En **PowerShell**:
+
 ```powershell
 docker compose run --rm --no-deps -v "${PWD}/tests:/pruebas:ro" app php /pruebas/totales_unitarios.php
+```
+
+En **CMD**:
+
+```cmd
+docker compose run --rm --no-deps -v "%CD%\tests:/pruebas:ro" app php /pruebas/totales_unitarios.php
 ```
 
 En AWS se verificó el acceso por HTTPS de los tres roles y que la cookie se emite con `Secure`; después de reiniciar los contenedores, MySQL conservó los usuarios y productos iniciales. El código, las tablas, los mensajes y la documentación del dominio se mantienen en español. Las alertas de devoluciones pendientes aparecen al abrir o recargar Pagos: a las 24 horas requieren atención y a las 48 horas se marcan como urgentes.
