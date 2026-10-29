@@ -86,3 +86,5 @@ docker compose run --rm --no-deps -v "${PWD}/tests:/pruebas:ro" app php /pruebas
 ```
 
 En AWS se verificó el acceso por HTTPS de los tres roles y que la cookie se emite con `Secure`; después de reiniciar los contenedores, MySQL conservó los usuarios y productos iniciales. El código, las tablas, los mensajes y la documentación del dominio se mantienen en español. Las alertas de devoluciones pendientes aparecen al abrir o recargar Pagos: a las 24 horas requieren atención y a las 48 horas se marcan como urgentes.
+
+Antes de la entrega queda comprobar que la instancia de AWS siga encendida, que la URL pública responda y que el código desplegado corresponda al commit entregado. El diagrama y los documentos complementarios se envían por separado.
