@@ -4,7 +4,7 @@ Aplicación interna de pedidos, inventario, pagos y reportes para Distribuidora 
 
 ## Modelo de datos
 
-El [esquema SQL](db/init/01_schema.sql) define las 13 tablas y sus relaciones; los [datos de prueba](db/init/02_seed.sql) se cargan al inicializar la base. El enunciado original y los diagramas de apoyo se archivan por separado, fuera del repositorio, en la carpeta `Documentacion_Andina` del escritorio del autor. Las reglas de negocio de la sección 4 del enunciado rigen los cálculos, el crédito y los movimientos de inventario.
+El [esquema SQL](db/init/01_schema.sql) define las 13 tablas y sus relaciones; los [datos de prueba](db/init/02_seed.sql) se cargan al inicializar la base. El diagrama de la base de datos y la documentación complementaria se entregan por separado, fuera del repositorio. Las reglas de negocio de la sección 4 del enunciado rigen los cálculos, el crédito y los movimientos de inventario.
 
 ## Entorno local
 
