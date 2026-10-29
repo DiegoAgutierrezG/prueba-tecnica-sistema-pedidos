@@ -26,9 +26,11 @@ try {
     if ($pedido === false) mostrar_error(404, 'Pedido no encontrado', 'El pedido solicitado no existe. Selecciona otro desde la lista de pedidos.', $usuario);
     $lineas = detalle_lineas_pedido($conexion, $id);
     $totales = calcular_totales_pedido($lineas);
-    $consulta = $conexion->prepare('SELECT COALESCE(SUM(valor), 0.00) FROM pagos WHERE pedido_id = :id');
-    $consulta->execute(['id' => $id]);
-    $pagado = centavos_de_decimal((string) $consulta->fetchColumn());
+    $pagos = historial_pagos($conexion, $id);
+    $pagado = 0;
+    foreach ($pagos as $pago) {
+        $pagado += centavos_de_decimal($pago['valor']);
+    }
     $devolucion = devolucion_pedido($conexion, $id);
     $devuelto = $devolucion === null ? 0 : centavos_de_decimal($devolucion['valor']);
     $total = centavos_de_decimal($pedido['total']);
@@ -89,9 +91,8 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
             && $pagado < $total && tiene_permiso($usuario, 'pagos.registrar')): ?>
             <a href="/pagos/nuevo.php?id=<?= $id ?>" class="btn btn-outline-primary">Registrar pago</a>
         <?php endif; ?>
-        <?php if ($pagado > 0 && ($pedido['estado'] === 'anulado' || $pagado >= $total)
-            && tiene_permiso($usuario, 'pagos.registrar')): ?>
-            <a href="/pagos/nuevo.php?id=<?= $id ?>#historial-pagos" class="btn btn-outline-primary">Ver historial de pagos</a>
+        <?php if ($pagado > 0): ?>
+            <a href="#titulo-pagos-pedido" class="btn btn-outline-primary">Ver pagos</a>
         <?php endif; ?>
         <?php
         $acciones = [];
@@ -253,6 +254,37 @@ mostrar_cabecera($pedido['consecutivo'], $usuario, false, 'pedidos');
         </div></div>
     </div>
 </div>
+<section class="card border-0 shadow-sm mt-4" aria-labelledby="titulo-pagos-pedido">
+    <div class="card-body p-4 pb-0">
+        <h2 id="titulo-pagos-pedido" class="h5 mb-3">Pagos del pedido</h2>
+    </div>
+    <?php if ($pagos === []): ?>
+        <p class="px-4 pb-4 text-secondary mb-0">Este pedido no tiene pagos registrados.</p>
+    <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light"><tr>
+                    <th scope="col" class="ps-4">Fecha en Bogotá</th>
+                    <th scope="col">Valor</th>
+                    <th scope="col">Método</th>
+                    <th scope="col">Detalle</th>
+                    <th scope="col" class="pe-4">Registrado por</th>
+                </tr></thead>
+                <tbody>
+                    <?php foreach ($pagos as $pago): ?>
+                        <tr>
+                            <td class="ps-4 text-nowrap"><?= escapar_html(fecha_pedido_bogota($pago['fecha'])) ?></td>
+                            <td class="text-nowrap"><?= escapar_html(mostrar_decimal_pedido($pago['valor'])) ?></td>
+                            <td><?= escapar_html(METODOS_PAGO[$pago['metodo']] ?? $pago['metodo']) ?></td>
+                            <td><?= escapar_html(descripcion_detalle_pago($pago)) ?></td>
+                            <td class="pe-4"><?= escapar_html($pago['registrado_por']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</section>
 <script src="/assets/js/detalle-pedido.js?v=3" defer></script>
 <script src="/assets/js/avisos-pedidos.js?v=1" defer></script>
 <?php mostrar_pie(true); ?>
