@@ -6,12 +6,20 @@ require_once __DIR__ . '/../includes/vista.php';
 require_once __DIR__ . '/funciones.php';
 
 $usuario = exigir_permiso('reportes.ver');
+$busquedaRecibida = $_GET['busqueda'] ?? '';
+$busqueda = is_string($busquedaRecibida) ? trim($busquedaRecibida) : '';
+$mensajeBusqueda = '';
+$clientes = [];
 
-try {
-    $clientes = consultar_cartera(conectar_bd());
-} catch (Throwable $error) {
-    error_log((string) $error);
-    mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la cartera. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
+if (!mb_check_encoding($busqueda, 'UTF-8') || mb_strlen($busqueda, 'UTF-8') > 150) {
+    $mensajeBusqueda = 'La búsqueda admite hasta 150 caracteres. Acórtala y vuelve a buscar.';
+} else {
+    try {
+        $clientes = consultar_cartera(conectar_bd(), $busqueda);
+    } catch (Throwable $error) {
+        error_log((string) $error);
+        mostrar_error(503, 'Servicio no disponible', 'No se pudo consultar la cartera. Vuelve al inicio e inténtalo de nuevo en unos minutos.', $usuario);
+    }
 }
 
 mostrar_cabecera('Cartera por cliente', $usuario, false, 'reportes');
@@ -26,7 +34,28 @@ mostrar_cabecera('Cartera por cliente', $usuario, false, 'reportes');
     </div>
     <a href="/reportes/index.php" class="btn btn-outline-primary align-self-start">Ventas del mes</a>
 </div>
-<div class="card border-0 shadow-sm">
+<form action="/reportes/cartera.php" method="get" class="card border-0 shadow-sm mb-4">
+    <div class="card-body row g-3 align-items-end">
+        <div class="col-md-8">
+            <label for="busqueda-cartera" class="form-label">Buscar por NIT o razón social</label>
+            <input id="busqueda-cartera" name="busqueda" type="search" class="form-control" value="<?= escapar_html($busqueda) ?>" maxlength="150" placeholder="Escribe una parte del NIT o nombre">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-outline-primary">Buscar</button>
+        </div>
+        <div class="col-md-2 d-grid">
+            <a href="/reportes/cartera.php" class="btn btn-outline-secondary">Limpiar</a>
+        </div>
+    </div>
+</form>
+<?php if ($mensajeBusqueda !== ''): ?>
+    <div class="alert alert-danger" role="alert"><?= escapar_html($mensajeBusqueda) ?></div>
+<?php else: ?>
+    <p class="text-secondary small mb-2"><?= count($clientes) ?> cliente<?= count($clientes) === 1 ? '' : 's' ?> encontrado<?= count($clientes) === 1 ? '' : 's' ?>.</p>
+    <?php if ($clientes === []): ?>
+        <div class="alert alert-info" role="status"><?= $busqueda === '' ? 'No hay clientes registrados.' : 'No hay clientes que coincidan con esta búsqueda.' ?></div>
+    <?php else: ?>
+    <div class="card border-0 shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light"><tr>
@@ -51,5 +80,7 @@ mostrar_cabecera('Cartera por cliente', $usuario, false, 'reportes');
             </tbody>
         </table>
     </div>
-</div>
+    </div>
+    <?php endif; ?>
+<?php endif; ?>
 <?php mostrar_pie(true); ?>

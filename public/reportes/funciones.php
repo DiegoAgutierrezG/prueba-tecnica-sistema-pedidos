@@ -105,8 +105,9 @@ function consultar_ventas_mes(PDO $conexion, string $mes): array
     ];
 }
 
-function consultar_cartera(PDO $conexion): array
+function consultar_cartera(PDO $conexion, string $busqueda = ''): array
 {
+    $patron = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $busqueda) . '%';
     $consulta = $conexion->prepare(
         "SELECT c.id, c.nit, c.razon_social, c.cupo_credito, c.activo,
                 COALESCE(ventas.facturado, 0.00) AS facturado,
@@ -122,9 +123,10 @@ function consultar_cartera(PDO $conexion): array
              WHERE p.estado IN ('confirmado', 'despachado', 'entregado')
              GROUP BY p.cliente_id
          ) AS ventas ON ventas.cliente_id = c.id
+         WHERE (c.nit LIKE :nit ESCAPE '!' OR c.razon_social LIKE :razon_social ESCAPE '!')
          ORDER BY c.razon_social, c.id"
     );
-    $consulta->execute();
+    $consulta->execute(['nit' => $patron, 'razon_social' => $patron]);
     $clientes = $consulta->fetchAll();
     foreach ($clientes as &$cliente) {
         $cupo = centavos_de_decimal($cliente['cupo_credito']);
