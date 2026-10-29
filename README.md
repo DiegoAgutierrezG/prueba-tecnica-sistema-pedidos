@@ -10,10 +10,29 @@ El [esquema SQL](db/init/01_schema.sql) define las 13 tablas y sus relaciones; l
 
 Se requiere Docker Desktop con contenedores Linux y Docker Compose. No es necesario instalar PHP ni MySQL en el equipo: las imágenes de Docker incluyen PHP 8.2 con Apache y MySQL 8.0. Bootstrap 5.3.8 está incluido localmente en `public/assets/bootstrap/`, junto con su licencia.
 
-Para arrancar una copia nueva:
+Para arrancar una copia nueva en Windows, usa los comandos de **la terminal que tengas abierta**. `git clone` se ejecuta una sola vez; si ya tienes el proyecto descargado, entra en su carpeta y ejecuta `docker compose up -d`.
 
-1. Ejecutar `docker compose up -d` desde la raíz del proyecto.
-2. Abrir <http://localhost:8080>. Sin una sesión activa, el sistema lleva al formulario de ingreso.
+Si ya tienes otra instalación de Andina en el mismo Docker Desktop y quieres probar una copia independiente, escribe **antes de `docker compose up -d`** `set COMPOSE_PROJECT_NAME=andina_prueba_compose` en CMD o `$env:COMPOSE_PROJECT_NAME = 'andina_prueba_compose'` en PowerShell. Así no reutilizarás sus volúmenes. En un equipo limpio omite este paso.
+
+**CMD** (el indicador suele verse como `C:\Users\...>`):
+
+```cmd
+git clone https://github.com/DiegoAgutierrezG/prueba-tecnica-sistema-pedidos.git "%USERPROFILE%\Desktop\Andina_Prueba_Compose"
+cd /d "%USERPROFILE%\Desktop\Andina_Prueba_Compose"
+docker compose up -d
+docker compose ps
+```
+
+**PowerShell** (el indicador comienza con `PS`):
+
+```powershell
+git clone https://github.com/DiegoAgutierrezG/prueba-tecnica-sistema-pedidos.git "$env:USERPROFILE\Desktop\Andina_Prueba_Compose"
+Set-Location "$env:USERPROFILE\Desktop\Andina_Prueba_Compose"
+docker compose up -d
+docker compose ps
+```
+
+En una instalación nueva, `db` debe aparecer como `healthy` y `app` en ejecución. Abre <http://localhost:8080>; sin una sesión activa, el sistema lleva al formulario de ingreso. En un equipo limpio no hace falta crear `.env` ni configurar nada antes de `docker compose up -d`.
 
 Si no existe `.env`, el primer arranque genera dos contraseñas aleatorias: una para la aplicación y otra para la administración de MySQL. Se guardan en volúmenes privados de Docker, fuera de Git. Si prefieres claves propias, copia `.env.example` a `.env` y defínelas **antes del primer arranque**; Git ignora ese archivo. Una base ya inicializada conserva sus claves: cambiar `.env` por sí solo no cambia las contraseñas de MySQL. La instalación local existente puede seguir usando su `.env` y sus datos.
 
